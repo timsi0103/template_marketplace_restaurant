@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const sidebarLinks = [
   { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
   { label: "Catalog", path: "/admin/catalog", icon: Package },
   { label: "Categories", path: "/admin/categories", icon: FolderTree },
+  { label: "Variants", path: "/admin/variants", icon: Layers },
   { label: "Modifiers", path: "/admin/modifiers", icon: SlidersHorizontal },
   { label: "Orders", path: "/admin/orders", icon: ClipboardList },
   { label: "Customers", path: "/admin/customers", icon: Users },

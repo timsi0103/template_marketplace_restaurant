@@ -22,16 +22,18 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState(loadCart);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  // product: { id, name, price (base), image, modifiers: [{group, name, price}], instructions }
+  // product: { id, name, price (base), image, modifiers: [{group, name, price}], variant: {id, name, price} | null, instructions }
   const addItem = useCallback((product) => {
     const modifiers = product.modifiers || [];
+    const variant = product.variant || null;
     const modKey = modifiers.map(m => `${m.group}:${m.name}`).sort().join("|");
+    const varKey = variant ? `var:${variant.id}` : "";
+    const fullKey = [varKey, modKey].filter(Boolean).join("||");
     const instructions = product.instructions || "";
 
     setItems((prev) => {
-      // Find existing line with same item + same modifiers + same instructions
       const existing = prev.find(
-        (i) => i.id === product.id && (i.modKey || "") === modKey && (i.instructions || "") === instructions
+        (i) => i.id === product.id && (i.fullKey || "") === fullKey && (i.instructions || "") === instructions
       );
       let next;
       if (existing) {
@@ -40,6 +42,7 @@ export function CartProvider({ children }) {
         );
       } else {
         const modTotal = modifiers.reduce((s, m) => s + (m.price || 0), 0);
+        const variantPrice = variant ? variant.price : product.price;
         next = [
           ...prev,
           {
@@ -47,10 +50,12 @@ export function CartProvider({ children }) {
             id: product.id,
             name: product.name,
             basePrice: product.price,
-            price: product.price + modTotal,
+            price: variantPrice + modTotal,
             image: product.image,
             modifiers,
+            variant,
             modKey,
+            fullKey,
             instructions,
             qty: product.qty || 1,
           },

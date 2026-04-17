@@ -145,6 +145,14 @@ class ResetPasswordRequest(BaseModel):
 class GoogleCallbackRequest(BaseModel):
     session_id: str
 
+class VariantItem(BaseModel):
+    id: str = ""
+    name: str
+    price: float
+    stock: int = -1
+    status: str = "in_stock"
+    image: str = ""
+
 class MenuItemCreate(BaseModel):
     name: str
     description: str = ""
@@ -154,6 +162,7 @@ class MenuItemCreate(BaseModel):
     images: List[str] = []
     tags: List[str] = []
     status: str = "in_stock"
+    variants: List[VariantItem] = []
 
 class MenuItemUpdate(BaseModel):
     name: Optional[str] = None
@@ -164,6 +173,7 @@ class MenuItemUpdate(BaseModel):
     images: Optional[List[str]] = None
     tags: Optional[List[str]] = None
     status: Optional[str] = None
+    variants: Optional[List[VariantItem]] = None
 
 class CategoryCreate(BaseModel):
     name: str
@@ -466,6 +476,9 @@ async def create_menu_item(body: MenuItemCreate, request: Request):
     await require_admin(request)
     item_id = str(uuid.uuid4())[:8]
     images = body.images if body.images else ([body.image] if body.image else [])
+    variants = []
+    for v in body.variants:
+        variants.append({"id": v.id or f"var_{uuid.uuid4().hex[:6]}", "name": v.name, "price": v.price, "stock": v.stock, "status": v.status, "image": v.image})
     doc = {
         "id": item_id,
         "name": body.name,
@@ -477,6 +490,7 @@ async def create_menu_item(body: MenuItemCreate, request: Request):
         "tags": body.tags,
         "status": body.status,
         "available": body.status == "in_stock",
+        "variants": variants,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.menu_items.insert_one(doc)
@@ -491,7 +505,10 @@ async def update_menu_item(item_id: str, body: MenuItemUpdate, request: Request)
         raise HTTPException(status_code=404, detail="Item not found")
     updates = {}
     for field, value in body.model_dump(exclude_none=True).items():
-        updates[field] = value
+        if field == "variants" and value is not None:
+            updates["variants"] = [{"id": v.get("id") or f"var_{uuid.uuid4().hex[:6]}", "name": v["name"], "price": v["price"], "stock": v.get("stock", -1), "status": v.get("status", "in_stock"), "image": v.get("image", "")} for v in value]
+        else:
+            updates[field] = value
     if "status" in updates:
         updates["available"] = updates["status"] == "in_stock"
     if "images" in updates and updates["images"]:
@@ -622,16 +639,16 @@ logger = logging.getLogger(__name__)
 # ─── Startup ──────────────────────────────────────────────
 
 SEED_ITEMS = [
-    {"id": "item-001", "name": "Heritage Duck Breast", "description": "Pan-seared to a perfect medium-rare, accompanied by a tart Montmorency cherry reduction, roasted parsnips, and a silken potato puree. A timeless preparation elevated with seasonal ingredients.", "price": 42.00, "category": "mains", "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&h=400&fit=crop"], "tags": ["CHEF'S SELECTION"], "status": "in_stock", "available": True},
+    {"id": "item-001", "name": "Heritage Duck Breast", "description": "Pan-seared to a perfect medium-rare, accompanied by a tart Montmorency cherry reduction, roasted parsnips, and a silken potato puree. A timeless preparation elevated with seasonal ingredients.", "price": 42.00, "category": "mains", "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1544025162-d76694265947?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&h=400&fit=crop"], "tags": ["CHEF'S SELECTION"], "status": "in_stock", "available": True, "variants": [{"id": "var-duck-250", "name": "250g", "price": 42.00, "stock": 15, "status": "in_stock", "image": ""}, {"id": "var-duck-500", "name": "500g", "price": 72.00, "stock": 8, "status": "in_stock", "image": ""}, {"id": "var-duck-1kg", "name": "1kg", "price": 130.00, "stock": 0, "status": "sold_out", "image": ""}]},
     {"id": "item-002", "name": "Heirloom Burrata", "description": "Hand-pulled artisan burrata from a local creamery, served with blistered vine tomatoes, fresh basil pesto, a drizzle of 12-year aged balsamic, and crispy sourdough crostini.", "price": 24.00, "category": "starters", "image": "https://images.unsplash.com/photo-1626200419199-391ae4be7a41?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1626200419199-391ae4be7a41?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1608897013039-887f21d8c804?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
     {"id": "item-003", "name": "Earth Harvest Bowl", "description": "Tri-color quinoa, fire-roasted root vegetables, Hass avocado, pickled radish, and a toasted sesame tahini dressing. A nourishing and vibrant celebration of the season's harvest.", "price": 18.00, "category": "mains", "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&h=400&fit=crop"], "tags": ["SEASONAL"], "status": "seasonal", "available": True},
     {"id": "item-004", "name": "Artisan Diavola", "description": "72-hour fermented sourdough crust, San Marzano tomato base, spicy Calabrian 'nduja salami, local hot honey, fresh mozzarella di bufala, and torn basil.", "price": 26.00, "category": "mains", "image": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=600&h=400&fit=crop"], "tags": ["WOOD-FIRED"], "status": "in_stock", "available": True},
-    {"id": "item-005", "name": "Hazelnut Ganache Tart", "description": "Dark chocolate ganache with roasted Piedmont hazelnuts, Maldon sea salt flakes, a delicate brown butter shortcrust, and a quenelle of crème fraîche.", "price": 14.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
-    {"id": "item-006", "name": "Truffle Infused Tagliatelle", "description": "Fresh hand-cut egg pasta with black truffle shavings from Alba, aged Parmigiano Reggiano, brown butter, and a whisper of nutmeg. Simple, luxurious, unforgettable.", "price": 34.00, "category": "mains", "image": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1473093226795-af9932fe5856?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1556761223-4c4282c73f77?w=600&h=400&fit=crop"], "tags": ["CHEF'S SIGNATURE"], "status": "in_stock", "available": True},
+    {"id": "item-005", "name": "Hazelnut Ganache Tart", "description": "Dark chocolate ganache with roasted Piedmont hazelnuts, Maldon sea salt flakes, a delicate brown butter shortcrust, and a quenelle of crème fraîche.", "price": 14.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True, "variants": [{"id": "var-tart-single", "name": "Single", "price": 14.00, "stock": 20, "status": "in_stock", "image": ""}, {"id": "var-tart-6pack", "name": "6-Pack", "price": 72.00, "stock": 5, "status": "in_stock", "image": ""}, {"id": "var-tart-12pack", "name": "12-Pack", "price": 132.00, "stock": 2, "status": "in_stock", "image": ""}, {"id": "var-tart-case", "name": "Case (24)", "price": 240.00, "stock": 0, "status": "sold_out", "image": ""}]},
+    {"id": "item-006", "name": "Truffle Infused Tagliatelle", "description": "Fresh hand-cut egg pasta with black truffle shavings from Alba, aged Parmigiano Reggiano, brown butter, and a whisper of nutmeg. Simple, luxurious, unforgettable.", "price": 34.00, "category": "mains", "image": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1473093226795-af9932fe5856?w=600&h=400&fit=crop", "https://images.unsplash.com/photo-1556761223-4c4282c73f77?w=600&h=400&fit=crop"], "tags": ["CHEF'S SIGNATURE"], "status": "in_stock", "available": True, "variants": [{"id": "var-tag-reg", "name": "Regular (200g)", "price": 34.00, "stock": -1, "status": "in_stock", "image": ""}, {"id": "var-tag-large", "name": "Large (350g)", "price": 48.00, "stock": 6, "status": "in_stock", "image": ""}]},
     {"id": "item-007", "name": "Spiced Lamb Kofta", "description": "Charcoal-grilled lamb kofta with smoky harissa, labneh, pickled turnip, pomegranate molasses, and warm pita bread. A celebration of Middle Eastern flavors.", "price": 28.00, "category": "starters", "image": "https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1529006557810-274b9b2fc783?w=600&h=400&fit=crop"], "tags": [], "status": "sold_out", "available": False},
     {"id": "item-008", "name": "Elderflower Spritz", "description": "House-made elderflower cordial, Prosecco, a splash of sparkling water, and fresh mint. Light, floral, and utterly refreshing.", "price": 16.00, "category": "drinks", "image": "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1536935338788-846bb9981813?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
     {"id": "item-009", "name": "Matcha Mille Crepe", "description": "Twenty delicate crepes layered with ceremonial-grade matcha cream, a light dusting of powdered sugar, and edible gold leaf. An architectural dessert.", "price": 14.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&h=400&fit=crop"], "tags": ["LIMITED DAILY"], "status": "in_stock", "available": True},
-    {"id": "item-010", "name": "Reserve Cold Brew", "description": "Single-origin Ethiopian Yirgacheffe, cold-brewed for 18 hours, served over hand-cut ice with a twist of orange zest. Bold, smooth, and deeply aromatic.", "price": 8.00, "category": "drinks", "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
+    {"id": "item-010", "name": "Reserve Cold Brew", "description": "Single-origin Ethiopian Yirgacheffe, cold-brewed for 18 hours, served over hand-cut ice with a twist of orange zest. Bold, smooth, and deeply aromatic.", "price": 8.00, "category": "drinks", "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True, "variants": [{"id": "var-brew-sm", "name": "Small (250ml)", "price": 8.00, "stock": -1, "status": "in_stock", "image": ""}, {"id": "var-brew-md", "name": "Medium (500ml)", "price": 12.00, "stock": -1, "status": "in_stock", "image": ""}, {"id": "var-brew-lg", "name": "Large (750ml)", "price": 16.00, "stock": 3, "status": "in_stock", "image": ""}]},
 ]
 
 @app.on_event("startup")

@@ -39,6 +39,13 @@ export default function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <h4 className="font-heading text-sm font-bold text-brand-text truncate">{item.name}</h4>
 
+                    {/* Variant */}
+                    {item.variant && (
+                      <div data-testid={`cart-variant-${item.cartLineId}`} className="mt-0.5">
+                        <span className="font-body text-[10px] text-brand-primary font-semibold">{item.variant.name}</span>
+                      </div>
+                    )}
+
                     {/* Modifiers list */}
                     {item.modifiers?.length > 0 && (
                       <div data-testid={`cart-modifiers-${item.cartLineId}`} className="mt-1 space-y-0.5">
