@@ -1,12 +1,30 @@
 import { Link, useLocation } from "react-router-dom";
-import { ShoppingBag, User } from "lucide-react";
+import { ShoppingBag, User, LogOut, ChevronDown } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState, useRef, useEffect } from "react";
 
 export default function Navbar() {
   const location = useLocation();
+  const { user, logout } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const isAdmin = location.pathname.startsWith("/admin");
   const isCheckout = location.pathname === "/checkout";
+  const isAuthPage = ["/login", "/signup", "/forgot-password", "/reset-password"].includes(location.pathname);
 
-  if (isAdmin || isCheckout) return null;
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  if (isAdmin || isCheckout || isAuthPage) return null;
 
   const navLinks = [
     { label: "Discover", path: "/" },
@@ -19,6 +37,10 @@ export default function Navbar() {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
   };
+
+  const isLoggedIn = user && user !== false && user.role !== "guest";
+  const displayName = isLoggedIn ? (user.name || user.email?.split("@")[0] || "User") : null;
+  const initials = displayName ? displayName.charAt(0).toUpperCase() : "U";
 
   return (
     <header
@@ -57,7 +79,7 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Icons */}
+          {/* Right side: Cart + User */}
           <div className="flex items-center gap-4">
             <Link
               to="/checkout"
@@ -66,13 +88,115 @@ export default function Navbar() {
             >
               <ShoppingBag size={20} strokeWidth={1.8} />
             </Link>
-            <Link
-              to="/loyalty"
-              data-testid="navbar-user-btn"
-              className="text-brand-text hover:text-brand-primary transition-colors duration-200"
-            >
-              <User size={20} strokeWidth={1.8} />
-            </Link>
+
+            {isLoggedIn ? (
+              /* Logged-in state: avatar + name dropdown */
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  data-testid="navbar-user-menu-btn"
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 group"
+                >
+                  {user.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={displayName}
+                      data-testid="navbar-user-avatar"
+                      className="w-8 h-8 rounded-full object-cover border-2 border-brand-border group-hover:border-brand-primary transition-colors"
+                    />
+                  ) : (
+                    <div
+                      data-testid="navbar-user-initials"
+                      className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center"
+                    >
+                      <span className="text-white text-xs font-body font-semibold">
+                        {initials}
+                      </span>
+                    </div>
+                  )}
+                  <span
+                    data-testid="navbar-user-name"
+                    className="hidden sm:inline font-body text-sm font-medium text-brand-text"
+                  >
+                    {displayName}
+                  </span>
+                  <ChevronDown
+                    size={14}
+                    className={`text-brand-text-secondary transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <div
+                    data-testid="navbar-user-dropdown"
+                    className="absolute right-0 top-full mt-2 w-52 bg-brand-surface border border-brand-border rounded-xl shadow-lg py-2 z-50"
+                  >
+                    <div className="px-4 py-2 border-b border-brand-border">
+                      <p className="font-body text-sm font-medium text-brand-text truncate">
+                        {displayName}
+                      </p>
+                      <p className="font-body text-xs text-brand-text-secondary truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                    <Link
+                      to="/loyalty"
+                      data-testid="dropdown-profile-link"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block px-4 py-2 font-body text-sm text-brand-text hover:bg-brand-bg transition-colors"
+                    >
+                      My Profile
+                    </Link>
+                    <Link
+                      to="/orders"
+                      data-testid="dropdown-orders-link"
+                      onClick={() => setDropdownOpen(false)}
+                      className="block px-4 py-2 font-body text-sm text-brand-text hover:bg-brand-bg transition-colors"
+                    >
+                      My Orders
+                    </Link>
+                    {user.role === "admin" && (
+                      <Link
+                        to="/admin"
+                        data-testid="dropdown-admin-link"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 font-body text-sm text-brand-primary font-medium hover:bg-brand-bg transition-colors"
+                      >
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <button
+                      data-testid="dropdown-logout-btn"
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        logout();
+                      }}
+                      className="w-full text-left px-4 py-2 font-body text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut size={14} /> Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Not logged in: login/signup links */
+              <div className="flex items-center gap-3">
+                <Link
+                  to="/login"
+                  data-testid="navbar-login-btn"
+                  className="font-body text-sm text-brand-text-secondary hover:text-brand-text transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/signup"
+                  data-testid="navbar-signup-btn"
+                  className="hidden sm:inline-flex px-4 py-1.5 bg-brand-primary text-white font-body text-sm font-medium rounded-full hover:bg-brand-primary-hover transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
