@@ -189,6 +189,27 @@ class ReorderItem(BaseModel):
 class ReorderRequest(BaseModel):
     items: List[ReorderItem]
 
+class ModifierOption(BaseModel):
+    id: str = ""
+    name: str
+    price_adjustment: float = 0
+
+class ModifierGroupCreate(BaseModel):
+    name: str
+    type: str = "optional"
+    min_selections: int = 0
+    max_selections: int = 0
+    options: List[ModifierOption] = []
+    linked_item_ids: List[str] = []
+
+class ModifierGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    min_selections: Optional[int] = None
+    max_selections: Optional[int] = None
+    options: Optional[List[ModifierOption]] = None
+    linked_item_ids: Optional[List[str]] = None
+
 # ─── Auth Endpoints ───────────────────────────────────────
 
 @api_router.post("/auth/register")
@@ -499,6 +520,60 @@ async def toggle_item_availability(item_id: str, request: Request):
     updated = await db.menu_items.find_one({"id": item_id}, {"_id": 0})
     return updated
 
+# ─── Modifier Group Endpoints ─────────────────────────────
+
+@api_router.get("/modifiers")
+async def get_all_modifier_groups():
+    groups = await db.modifier_groups.find({}, {"_id": 0}).to_list(200)
+    return {"groups": groups, "count": len(groups)}
+
+@api_router.get("/menu/items/{item_id}/modifiers")
+async def get_item_modifiers(item_id: str):
+    groups = await db.modifier_groups.find({"linked_item_ids": item_id}, {"_id": 0}).to_list(50)
+    return {"groups": groups}
+
+@api_router.post("/admin/modifiers")
+async def create_modifier_group(body: ModifierGroupCreate, request: Request):
+    await require_admin(request)
+    group_id = f"mod_{uuid.uuid4().hex[:8]}"
+    options = []
+    for opt in body.options:
+        options.append({"id": opt.id or f"opt_{uuid.uuid4().hex[:6]}", "name": opt.name, "price_adjustment": opt.price_adjustment})
+    doc = {
+        "id": group_id, "name": body.name, "type": body.type,
+        "min_selections": body.min_selections, "max_selections": body.max_selections,
+        "options": options, "linked_item_ids": body.linked_item_ids,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.modifier_groups.insert_one(doc)
+    created = await db.modifier_groups.find_one({"id": group_id}, {"_id": 0})
+    return created
+
+@api_router.put("/admin/modifiers/{group_id}")
+async def update_modifier_group(group_id: str, body: ModifierGroupUpdate, request: Request):
+    await require_admin(request)
+    existing = await db.modifier_groups.find_one({"id": group_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Modifier group not found")
+    updates = {}
+    for field, value in body.model_dump(exclude_none=True).items():
+        if field == "options" and value is not None:
+            updates["options"] = [{"id": o.get("id") or f"opt_{uuid.uuid4().hex[:6]}", "name": o["name"], "price_adjustment": o.get("price_adjustment", 0)} for o in value]
+        else:
+            updates[field] = value
+    if updates:
+        await db.modifier_groups.update_one({"id": group_id}, {"$set": updates})
+    updated = await db.modifier_groups.find_one({"id": group_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/modifiers/{group_id}")
+async def delete_modifier_group(group_id: str, request: Request):
+    await require_admin(request)
+    result = await db.modifier_groups.delete_one({"id": group_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Modifier group not found")
+    return {"message": "Modifier group deleted"}
+
 # ─── Other Routes ─────────────────────────────────────────
 
 @api_router.get("/orders")
@@ -571,6 +646,8 @@ async def startup():
     await db.categories.create_index("id", unique=True)
     await db.categories.create_index("slug", unique=True)
     await db.categories.create_index("parent_id")
+    await db.modifier_groups.create_index("id", unique=True)
+    await db.modifier_groups.create_index("linked_item_ids")
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
@@ -622,6 +699,26 @@ async def startup():
             except Exception:
                 pass
         logger.info(f"Seeded {len(seed_cats)} categories")
+
+    # Seed modifier groups
+    mod_count = await db.modifier_groups.count_documents({})
+    if mod_count == 0:
+        all_item_ids = [i["id"] for i in SEED_ITEMS]
+        drink_ids = [i["id"] for i in SEED_ITEMS if i["category"] == "drinks"]
+        main_ids = [i["id"] for i in SEED_ITEMS if i["category"] == "mains"]
+        seed_mods = [
+            {"id": "mod-size", "name": "Size", "type": "required", "min_selections": 1, "max_selections": 1, "options": [{"id": "opt-sm", "name": "Small", "price_adjustment": 0}, {"id": "opt-md", "name": "Medium", "price_adjustment": 3}, {"id": "opt-lg", "name": "Large", "price_adjustment": 6}], "linked_item_ids": all_item_ids},
+            {"id": "mod-extras", "name": "Add-Ons", "type": "optional", "min_selections": 0, "max_selections": 5, "options": [{"id": "opt-cheese", "name": "Extra Cheese", "price_adjustment": 1.5}, {"id": "opt-shot", "name": "Extra Shot", "price_adjustment": 0.75}, {"id": "opt-truffle", "name": "Truffle Oil Drizzle", "price_adjustment": 3}, {"id": "opt-avocado", "name": "Avocado", "price_adjustment": 2.5}], "linked_item_ids": all_item_ids},
+            {"id": "mod-temp", "name": "Temperature", "type": "required", "min_selections": 1, "max_selections": 1, "options": [{"id": "opt-hot", "name": "Hot", "price_adjustment": 0}, {"id": "opt-iced", "name": "Iced", "price_adjustment": 0.5}], "linked_item_ids": drink_ids},
+            {"id": "mod-protein", "name": "Protein Choice", "type": "optional", "min_selections": 0, "max_selections": 1, "options": [{"id": "opt-chicken", "name": "Grilled Chicken", "price_adjustment": 4}, {"id": "opt-salmon", "name": "Pan-Seared Salmon", "price_adjustment": 6}, {"id": "opt-tofu", "name": "Crispy Tofu", "price_adjustment": 3}], "linked_item_ids": main_ids},
+        ]
+        for mod in seed_mods:
+            mod["created_at"] = datetime.now(timezone.utc).isoformat()
+            try:
+                await db.modifier_groups.insert_one(mod)
+            except Exception:
+                pass
+        logger.info(f"Seeded {len(seed_mods)} modifier groups")
 
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)
