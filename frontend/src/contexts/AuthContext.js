@@ -3,7 +3,8 @@ import axios from "axios";
 
 const AuthContext = createContext(null);
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+// Use relative URL for API calls to avoid CORS redirect issues
+const API = "/api";
 
 function formatApiErrorDetail(detail) {
   if (detail == null) return "Something went wrong. Please try again.";
