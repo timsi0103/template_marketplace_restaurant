@@ -1,8 +1,5 @@
 # The Culinary Editorial - F&B E-Commerce Platform PRD
 
-## Original Problem Statement
-Create a food & beverage e-commerce website template serving restaurant owners, food trucks, D2C food brands, bakeries.
-
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn UI, relative API paths (/api/...)
 - **Backend**: FastAPI + MongoDB (Motor async), JWT + Emergent Google OAuth
@@ -11,23 +8,22 @@ Create a food & beverage e-commerce website template serving restaurant owners, 
 ## What's Been Implemented
 
 ### Phase 1 - Skeleton Template
-- [x] 8 page skeletons, Navigation, Footer
-
-### Phase 2 - Authentication & Identity
-- [x] JWT email/password, Google OAuth, Guest sessions, admin seeding
-
+### Phase 2 - Authentication & Identity (JWT + Google OAuth + Guest)
 ### Phase 3 - Mobile-First Responsive Design
-- [x] Bottom nav, cart drawer, horizontal scroll, sticky bars, touch targets
+### Phase 4 - Product/Menu Item Catalog (CRUD + gallery + availability)
+### Phase 5 - Categories & Subcategories (hierarchy + landing pages)
 
-### Phase 4 - Product/Menu Item Catalog
-- [x] Full CRUD, gallery carousel, availability badges, admin catalog table
-
-### Phase 5 - Categories & Subcategories (Current)
-- [x] **Storefront Category Navigation**: Image-based category bar (All, Starters, Mains, Drinks, Desserts) with active/selected state, subcategory dropdown on click, secondary pill bar
-- [x] **Category Landing Page** (/menu/:slug): Hero image, description, subcategory filter bar, filtered item grid, back to all categories link
-- [x] **Admin Category Management** (/admin/categories): Table with drag-and-drop reorder, category images, slug, description, subcategory count, visibility toggle, edit/delete actions
-- [x] **Admin Add/Edit Category Form**: Name, slug, description, image URL, parent category selector (for subcategories), visibility toggle
-- [x] **Backend**: Full CRUD + reorder endpoint, 4 top-level + 12 subcategories seeded
+### Phase 6 - Modifiers, Add-Ons & Customization (Current)
+- [x] **Required Choice Groups**: Size (Small/Medium/Large) with radio buttons, REQUIRED badge, pre-selected default, real-time price updates
+- [x] **Optional Add-Ons Checklist**: Extra Cheese +$1.50, Extra Shot +$0.75, Truffle Oil +$3, Avocado +$2.50 with checkboxes and max selection limits
+- [x] **Special Instructions**: Text field preserved in cart
+- [x] **Real-time Pricing**: Price updates live as modifiers selected, shows "(base $X + $Y modifiers)" breakdown
+- [x] **Modifier Validation**: Error state with red border and message when required group not completed
+- [x] **Cart with Modifiers**: Unique line items per modifier combination, shows "Size: Large +$6.00", "Add-Ons: Extra Cheese +$1.50" below item name
+- [x] **Context-specific Modifiers**: Temperature (required) for drinks only, Protein Choice (optional) for mains only
+- [x] **Admin Modifier Management** (`/admin/modifiers`): List with type badges, option previews, linked item counts, edit/delete
+- [x] **Admin Add/Edit Form**: Group name, type (required/optional), min/max selections, dynamic option rows with prices, linked items grid with Select All/Clear
+- [x] **Backend**: Full CRUD, 4 seeded groups, item-modifier linkage via linked_item_ids
 
 ## Test Credentials
 - Admin: admin@culinaryeditorial.com / Admin123!
@@ -37,8 +33,6 @@ Create a food & beverage e-commerce website template serving restaurant owners, 
 - Order placement flow (cart → order creation)
 - Payment integration (Stripe)
 ### P1
-- Order tracking real-time updates
-- Kitchen display with order management
-- Admin analytics with charts
+- Order tracking, Kitchen display, Admin analytics
 ### P2
-- Loyalty points, subscriptions, search, notifications
+- Loyalty, subscriptions, search, notifications
