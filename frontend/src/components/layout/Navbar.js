@@ -1,11 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import { ShoppingBag, User, LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 import { useState, useRef, useEffect } from "react";
 
 export default function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { itemCount, setDrawerOpen } = useCart();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -81,13 +83,21 @@ export default function Navbar() {
 
           {/* Right side: Cart + User */}
           <div className="flex items-center gap-4">
-            <Link
-              to="/checkout"
+            <button
+              onClick={() => setDrawerOpen(true)}
               data-testid="navbar-cart-btn"
-              className="text-brand-primary hover:text-brand-primary-hover transition-colors duration-200"
+              className="relative text-brand-primary hover:text-brand-primary-hover transition-colors duration-200"
             >
               <ShoppingBag size={20} strokeWidth={1.8} />
-            </Link>
+              {itemCount > 0 && (
+                <span
+                  data-testid="navbar-cart-badge"
+                  className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-brand-orange text-white text-[9px] font-body font-bold rounded-full flex items-center justify-center"
+                >
+                  {itemCount > 9 ? "9+" : itemCount}
+                </span>
+              )}
+            </button>
 
             {isLoggedIn ? (
               /* Logged-in state: avatar + name dropdown */

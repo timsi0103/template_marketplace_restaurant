@@ -8,20 +8,15 @@
   font-family: 'Manrope', sans-serif;
 }
 
-/* Product card hover */
+/* Product card hover (desktop only) */
+@media (hover: hover) {
+  .product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+  }
+}
 .product-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.product-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-}
-
-/* Category pill active state */
-.category-pill-active {
-  background-color: #E55A3D;
-  color: white;
-  border-color: #E55A3D;
 }
 
 /* Staggered fade-in animations */
@@ -29,14 +24,6 @@
 .stagger-2 { animation-delay: 0.2s; }
 .stagger-3 { animation-delay: 0.3s; }
 .stagger-4 { animation-delay: 0.4s; }
-
-/* Smooth image zoom on hover */
-.img-zoom {
-  transition: transform 0.4s ease;
-}
-.img-zoom:hover {
-  transform: scale(1.03);
-}
 
 /* Admin sidebar active link */
 .admin-nav-active {
@@ -49,17 +36,64 @@
 .queue-red { border-left: 3px solid #6E1C1E; }
 .queue-green { border-left: 3px solid #22c55e; }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
+/* Scrollbar styling (desktop) */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #F8F5F0;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #E5E0D8;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ccc7be;
+  }
 }
-::-webkit-scrollbar-track {
-  background: #F8F5F0;
+
+/* ─── Mobile-specific ────────────────────────────── */
+
+/* Hide scrollbar on horizontal scroll containers */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-::-webkit-scrollbar-thumb {
-  background: #E5E0D8;
-  border-radius: 3px;
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #ccc7be;
+
+/* Scroll snap for category tabs */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.scroll-snap-x > * {
+  scroll-snap-align: start;
+}
+
+/* Touch-active feedback */
+.touch-active:active {
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* Safe area for bottom nav (iOS notch) */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Sticky category bar shadow */
+.sticky-shadow {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Mobile CTA pulse on first load */
+@keyframes pulse-once {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(110, 28, 30, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(110, 28, 30, 0.15); }
+}
+.cta-pulse {
+  animation: pulse-once 1.5s ease-out 0.5s;
 }

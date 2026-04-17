@@ -1,8 +1,11 @@
 import "@/App.css";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CartProvider } from "@/contexts/CartContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import BottomNav from "@/components/layout/BottomNav";
+import CartDrawer from "@/components/cart/CartDrawer";
 import HomePage from "@/pages/HomePage";
 import MenuPage from "@/pages/MenuPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
@@ -20,8 +23,6 @@ import AuthCallback from "@/pages/AuthCallback";
 function AppRouter() {
   const location = useLocation();
 
-  // CRITICAL: Check URL fragment for session_id synchronously during render
-  // This prevents race conditions with ProtectedRoute checking auth state
   if (location.hash?.includes("session_id=")) {
     return <AuthCallback />;
   }
@@ -29,21 +30,25 @@ function AppRouter() {
   return (
     <>
       <Navbar />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/menu" element={<MenuPage />} />
-        <Route path="/product/:id" element={<ProductDetailPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrderTrackingPage />} />
-        <Route path="/loyalty" element={<LoyaltyPage />} />
-        <Route path="/kitchen" element={<KitchenPage />} />
-        <Route path="/admin/*" element={<AdminDashboard />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-      </Routes>
+      <div className="pb-16 md:pb-0">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrderTrackingPage />} />
+          <Route path="/loyalty" element={<LoyaltyPage />} />
+          <Route path="/kitchen" element={<KitchenPage />} />
+          <Route path="/admin/*" element={<AdminDashboard />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Routes>
+      </div>
       <Footer />
+      <BottomNav />
+      <CartDrawer />
     </>
   );
 }
@@ -53,7 +58,9 @@ function App() {
     <div className="App min-h-screen bg-brand-bg font-body">
       <BrowserRouter>
         <AuthProvider>
-          <AppRouter />
+          <CartProvider>
+            <AppRouter />
+          </CartProvider>
         </AuthProvider>
       </BrowserRouter>
     </div>
