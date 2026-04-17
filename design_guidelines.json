@@ -1,0 +1,102 @@
+{
+  "theme": "Light",
+  "archetype": "1 (Organic & Earthy)",
+  "brand_colors": {
+    "background": "#F8F5F0",
+    "surface": "#FFFFFF",
+    "surface_admin": "#F8F5F0",
+    "text_primary": "#212121",
+    "text_secondary": "#5C5C5C",
+    "primary": "#6E1C1E",
+    "primary_hover": "#561416",
+    "accent_orange": "#E55A3D",
+    "accent_orange_hover": "#D1482E",
+    "border": "#E5E0D8"
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Cormorant Garamond, serif",
+      "style": "Editorial style, highly readable, tracking-tight for large headings"
+    },
+    "body": {
+      "font_family": "Manrope, sans-serif",
+      "style": "Clean, modern, highly legible at small sizes"
+    },
+    "sizes": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-none",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base",
+      "small": "text-sm"
+    }
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous white space throughout, clean and minimal",
+    "spacing_scale": "p-4, p-6, p-8, p-12, gap-6, gap-8",
+    "product_grid": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8",
+    "admin_dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+  },
+  "component_rules": {
+    "product_cards": "Clean, minimal, rounded corners (rounded-2xl), subtle shadow (shadow-sm), image aspect ratio 1:1 or 4:5, off-white/white background.",
+    "buttons": "Action buttons in dark red/maroon (#6E1C1E), rounded-full or rounded-xl, high contrast.",
+    "badges": "Pill shaped (rounded-full), bg-orange-500 text-white or text-orange-600 bg-orange-50. Used for 'CHEF\\'S SELECTION'.",
+    "category_filters": "Pill shapes. Inactive: border border-border text-text_secondary. Active state: bg-accent_orange text-white or border-accent_orange text-accent_orange.",
+    "admin_sidebar": "Warm off-white background (#F8F5F0), distinct from pure white content area.",
+    "price_text": "Red/dark red color (#6E1C1E), semi-bold."
+  },
+  "visual_enhancers": {
+    "borders": "Subtle 1px solid borders using #E5E0D8 to separate sections where needed",
+    "shadows": "Very soft ambient shadows for product cards (shadow-[0_4px_20px_rgba(0,0,0,0.03)])"
+  },
+  "motion_and_interactions": {
+    "hover_states": "Product cards elevate slightly (-translate-y-1) and increase shadow. Buttons darken on hover.",
+    "transitions": "transition-all duration-300 ease-in-out"
+  },
+  "accessibility": {
+    "contrast": "Ensure #212121 on #F8F5F0 and white meets AAA. #6E1C1E and #E55A3D must contrast properly against white.",
+    "testing": "All interactive elements (buttons, links, form inputs) MUST include data-testid attribute formatted as kebab-case, role-based."
+  },
+  "image_urls": [
+    {
+      "url": "https://images.unsplash.com/photo-1755811248279-1ab13b7d4384?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwZm9vZCUyMHBsYXRpbmd8ZW58MHx8fHwxNzc2NDM2NzE2fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Gourmet steak dinner, top view",
+      "category": "featured_product"
+    },
+    {
+      "url": "https://images.pexels.com/photos/6297198/pexels-photo-6297198.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Gourmet salmon dish artfully plated",
+      "category": "featured_product"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1571157577110-493b325fdd3d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHwxfHxiYWtlcnklMjBmcmVzaCUyMGJyZWFkJTIwcGFzdHJ5fGVufDB8fHx8MTc3NjQzNjcxNnww&ixlib=rb-4.1.0&q=85",
+      "description": "Baked fresh bread lot",
+      "category": "curated_collection"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1771857607729-181ea40ca5c5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njl8MHwxfHNlYXJjaHw0fHxiYWtlcnklMjBmcmVzaCUyMGJyZWFkJTIwcGFzdHJ5fGVufDB8fHx8MTc3NjQzNjcxNnww&ixlib=rb-4.1.0&q=85",
+      "description": "Sandwiches in a wooden tray",
+      "category": "curated_collection"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1717838207789-62684e75a770?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzF8MHwxfHNlYXJjaHwyfHxyZXN0YXVyYW50JTIwY2hlZiUyMGNvb2tpbmd8ZW58MHx8fHwxNzc2NDM2NzE2fDA&ixlib=rb-4.1.0&q=85",
+      "description": "Chef preparing food in a kitchen",
+      "category": "hero_background"
+    },
+    {
+      "url": "https://images.pexels.com/photos/32525175/pexels-photo-32525175.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+      "description": "Elegant display of gourmet dishes artfully arranged on a marble table.",
+      "category": "hero_background_secondary"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "Use ONLY JavaScript (.js) for all files. DO NOT output .tsx or .ts files.",
+    "Initialize Tailwind config with the custom brand colors (#F8F5F0, #6E1C1E, #E55A3D, #212121).",
+    "Include 'Cormorant Garamond' and 'Manrope' from Google Fonts in the index.html or global css.",
+    "Build the skeletons and headers first. Do not add functional features yet; they will be filled in follow-up prompts.",
+    "Create placeholders/skeletons for these pages/views: Home Page, Menu/Collection Page, Product Detail Page, Checkout Page, Admin Dashboard, Order Tracking, Loyalty/Subscriptions, Kitchen Operations.",
+    "Every interactive element MUST have a 'data-testid' attribute.",
+    "Use Shadcn UI (in JS) for standard inputs, dialogs, dropdowns. Customize them to fit the 'Organic & Earthy' theme (generous padding, off-white backgrounds where appropriate).",
+    "For the hero section, avoid heavy black overlays over images. Use subtle gradients or position text in negative space.",
+    "Admin Dashboard layout MUST use a warm off-white sidebar (#F8F5F0) with a pure white (#FFFFFF) main content area and crisp borders."
+  ]
+}
