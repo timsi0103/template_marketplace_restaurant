@@ -1,27 +1,40 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Plus, ChevronDown } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
-// Use relative URL to avoid CORS redirect issues
 const API_BASE = "/api";
-const CATEGORIES = [
-  { label: "All Offerings", value: "all" },
-  { label: "Starters", value: "starters" },
-  { label: "Mains", value: "mains" },
-  { label: "Drinks", value: "drinks" },
-  { label: "Desserts", value: "desserts" },
-];
 
 export default function MenuPage() {
+  const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeSubcategory, setActiveSubcategory] = useState(null);
+  const [showSubDropdown, setShowSubDropdown] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { addItem } = useCart();
-  const scrollRef = useRef(null);
+  const navigate = useNavigate();
+  const dropdownRef = useRef(null);
 
+  // Fetch categories
+  useEffect(() => {
+    fetch(`${API_BASE}/categories/tree`)
+      .then(r => r.json())
+      .then(d => setCategories(d.categories || []))
+      .catch(() => {});
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowSubDropdown(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Fetch items
   useEffect(() => {
     const fetchItems = async () => {
+      setLoading(true);
       try {
         const url = activeCategory === "all" ? `${API_BASE}/menu/items` : `${API_BASE}/menu/items?category=${activeCategory}`;
         const resp = await fetch(url);
@@ -33,9 +46,32 @@ export default function MenuPage() {
         setLoading(false);
       }
     };
-    setLoading(true);
     fetchItems();
   }, [activeCategory]);
+
+  const handleCategoryClick = (slug) => {
+    if (slug === activeCategory && slug !== "all") {
+      setShowSubDropdown(!showSubDropdown);
+    } else {
+      setActiveCategory(slug);
+      setActiveSubcategory(null);
+      setShowSubDropdown(false);
+      if (slug !== "all") {
+        const cat = categories.find(c => c.slug === slug);
+        if (cat?.subcategories?.length > 0) {
+          setShowSubDropdown(true);
+        }
+      }
+    }
+  };
+
+  const handleSubClick = (subSlug) => {
+    setActiveSubcategory(subSlug);
+    setShowSubDropdown(false);
+  };
+
+  const activeCat = categories.find(c => c.slug === activeCategory);
+  const subcategories = activeCat?.subcategories?.filter(s => s.visible !== false) || [];
 
   const handleAdd = (e, item) => {
     e.preventDefault();
@@ -47,31 +83,123 @@ export default function MenuPage() {
   return (
     <div data-testid="menu-page" className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 lg:pt-14">
-        <div className="mb-4 sm:mb-10">
+        <div className="mb-6 sm:mb-10">
           <h1 data-testid="menu-title" className="font-heading text-3xl sm:text-5xl lg:text-6xl font-bold text-brand-text tracking-tight leading-none">
             The Collection
           </h1>
           <p data-testid="menu-subtitle" className="font-body text-xs sm:text-base text-brand-text-secondary mt-2 sm:mt-3 max-w-xl leading-relaxed">
-            A curated selection of our finest offerings, designed to elevate your palate and transform the everyday dining experience into an editorial moment.
+            A curated selection of our finest offerings, designed to elevate your palate.
           </p>
         </div>
-      </div>
 
-      {/* Sticky horizontal scrollable category bar */}
-      <div data-testid="category-filters" className="sticky top-16 md:top-[65px] z-30 bg-brand-bg/95 backdrop-blur-sm border-b border-brand-border sm:border-b-0 sm:static sm:bg-transparent sm:backdrop-blur-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-0 sm:mb-10">
-          <div ref={scrollRef} className="flex gap-2.5 sm:gap-3 overflow-x-auto hide-scrollbar scroll-snap-x">
-            {CATEGORIES.map((cat) => (
-              <button key={cat.value} data-testid={`category-${cat.value}`} onClick={() => setActiveCategory(cat.value)}
-                className={`font-body text-xs sm:text-sm px-4 sm:px-5 py-2 rounded-full border transition-all duration-200 whitespace-nowrap flex-shrink-0 active:scale-95 ${activeCategory === cat.value ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border sm:bg-transparent"}`}
-              >{cat.label}</button>
-            ))}
+        {/* Top-level category bar with images */}
+        {categories.length > 0 && (
+          <div data-testid="category-nav" className="mb-6 sm:mb-8">
+            <div className="flex gap-3 sm:gap-4 overflow-x-auto hide-scrollbar scroll-snap-x pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {/* All button */}
+              <button
+                data-testid="category-all"
+                onClick={() => { setActiveCategory("all"); setActiveSubcategory(null); setShowSubDropdown(false); }}
+                className={`flex flex-col items-center gap-2 flex-shrink-0 group transition-all ${activeCategory === "all" ? "" : "opacity-60 hover:opacity-100"}`}
+              >
+                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === "all" ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
+                  <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center">
+                    <span className="font-heading text-xl sm:text-2xl font-bold text-brand-primary">All</span>
+                  </div>
+                </div>
+                <span className={`font-body text-[10px] sm:text-xs font-medium text-center ${activeCategory === "all" ? "text-brand-text" : "text-brand-text-secondary"}`}>
+                  All
+                </span>
+              </button>
+
+              {categories.filter(c => c.visible !== false).map((cat) => (
+                <div key={cat.id} className="relative" ref={activeCategory === cat.slug ? dropdownRef : null}>
+                  <button
+                    data-testid={`category-${cat.slug}`}
+                    onClick={() => handleCategoryClick(cat.slug)}
+                    className={`flex flex-col items-center gap-2 flex-shrink-0 group transition-all ${activeCategory === cat.slug ? "" : "opacity-60 hover:opacity-100"}`}
+                  >
+                    <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === cat.slug ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
+                      {cat.image ? (
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-brand-bg flex items-center justify-center">
+                          <span className="font-heading text-lg font-bold text-brand-text-secondary">{cat.name.charAt(0)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      <span className={`font-body text-[10px] sm:text-xs font-medium text-center ${activeCategory === cat.slug ? "text-brand-text" : "text-brand-text-secondary"}`}>
+                        {cat.name}
+                      </span>
+                      {cat.subcategories?.length > 0 && (
+                        <ChevronDown size={10} className={`text-brand-text-secondary transition-transform ${activeCategory === cat.slug && showSubDropdown ? "rotate-180" : ""}`} />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Subcategory dropdown */}
+                  {activeCategory === cat.slug && showSubDropdown && subcategories.length > 0 && (
+                    <div data-testid={`subcategory-dropdown-${cat.slug}`} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-brand-surface border border-brand-border rounded-xl shadow-lg py-2 z-40 min-w-[160px]">
+                      <button
+                        data-testid={`sub-all-${cat.slug}`}
+                        onClick={() => handleSubClick(null)}
+                        className={`w-full text-left px-4 py-2 font-body text-sm transition-colors ${!activeSubcategory ? "text-brand-primary font-semibold bg-brand-bg" : "text-brand-text hover:bg-brand-bg"}`}
+                      >
+                        All {cat.name}
+                      </button>
+                      {subcategories.map((sub) => (
+                        <button
+                          key={sub.id}
+                          data-testid={`sub-${sub.slug}`}
+                          onClick={() => handleSubClick(sub.slug)}
+                          className={`w-full text-left px-4 py-2 font-body text-sm transition-colors ${activeSubcategory === sub.slug ? "text-brand-primary font-semibold bg-brand-bg" : "text-brand-text hover:bg-brand-bg"}`}
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Active subcategory secondary bar (mobile-friendly) */}
+        {subcategories.length > 0 && !showSubDropdown && (
+          <div data-testid="subcategory-pills" className="mb-6 sm:mb-8">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar scroll-snap-x">
+              <button
+                onClick={() => setActiveSubcategory(null)}
+                className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${!activeSubcategory ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}
+              >
+                All {activeCat?.name}
+              </button>
+              {subcategories.map((sub) => (
+                <button
+                  key={sub.id}
+                  data-testid={`pill-${sub.slug}`}
+                  onClick={() => setActiveSubcategory(sub.slug)}
+                  className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${activeSubcategory === sub.slug ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}
+                >
+                  {sub.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Category landing CTA */}
+        {activeCategory !== "all" && activeCat && (
+          <Link to={`/menu/${activeCat.slug}`} data-testid="view-category-link" className="inline-flex items-center gap-1 font-body text-xs text-brand-primary font-medium mb-4 hover:text-brand-primary-hover transition-colors">
+            View full {activeCat.name} collection &rarr;
+          </Link>
+        )}
       </div>
 
       {/* Product Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-14 pt-4 sm:pt-0">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-14">
         {loading ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" /></div>
         ) : items.length === 0 ? (
@@ -96,7 +224,7 @@ export default function MenuPage() {
                         <span data-testid={`sold-out-badge-${item.id}`} className="px-3 py-1 bg-red-600 text-white text-[10px] font-body font-bold uppercase tracking-wider rounded">Sold Out</span>
                       </div>
                     )}
-                    {item.status === "seasonal" && !isSoldOut && (
+                    {item.status === "seasonal" && (
                       <span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-body font-semibold uppercase rounded">Seasonal</span>
                     )}
                   </div>
@@ -104,8 +232,7 @@ export default function MenuPage() {
                     <h3 className={`font-heading text-sm sm:text-base font-bold truncate sm:whitespace-normal ${isSoldOut ? "text-brand-text-secondary line-through" : "text-brand-text"}`}>
                       {item.name}
                     </h3>
-                    <p className="font-body text-[10px] sm:text-xs text-brand-text-secondary mt-1 sm:mt-2 leading-relaxed line-clamp-2 hidden sm:block">{item.description}</p>
-                    <p className="font-body text-[10px] text-brand-text-secondary mt-0.5 line-clamp-1 sm:hidden">{item.description}</p>
+                    <p className="font-body text-[10px] sm:text-xs text-brand-text-secondary mt-1 sm:mt-2 leading-relaxed line-clamp-2">{item.description}</p>
                     <div className="flex items-center justify-between mt-2 sm:mt-4">
                       <span className={`font-heading text-base sm:text-lg font-bold ${isSoldOut ? "text-brand-text-secondary" : "text-brand-primary"}`}>
                         ${item.price?.toFixed(2)}

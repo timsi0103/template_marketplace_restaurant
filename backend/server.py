@@ -165,6 +165,30 @@ class MenuItemUpdate(BaseModel):
     tags: Optional[List[str]] = None
     status: Optional[str] = None
 
+class CategoryCreate(BaseModel):
+    name: str
+    slug: str = ""
+    description: str = ""
+    image: str = ""
+    parent_id: Optional[str] = None
+    visible: bool = True
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    image: Optional[str] = None
+    parent_id: Optional[str] = None
+    visible: Optional[bool] = None
+    display_order: Optional[int] = None
+
+class ReorderItem(BaseModel):
+    id: str
+    display_order: int
+
+class ReorderRequest(BaseModel):
+    items: List[ReorderItem]
+
 # ─── Auth Endpoints ───────────────────────────────────────
 
 @api_router.post("/auth/register")
@@ -331,6 +355,90 @@ async def get_categories():
     categories = await db.menu_items.distinct("category")
     return {"categories": categories}
 
+# ─── Category Endpoints ───────────────────────────────────
+
+@api_router.get("/categories/tree")
+async def get_category_tree():
+    cats = await db.categories.find({}, {"_id": 0}).sort("display_order", 1).to_list(200)
+    top_level = [c for c in cats if not c.get("parent_id")]
+    for cat in top_level:
+        cat["subcategories"] = sorted(
+            [c for c in cats if c.get("parent_id") == cat["id"]],
+            key=lambda x: x.get("display_order", 0)
+        )
+    return {"categories": top_level}
+
+@api_router.get("/categories")
+async def get_all_categories():
+    cats = await db.categories.find({}, {"_id": 0}).sort("display_order", 1).to_list(200)
+    return {"categories": cats}
+
+@api_router.get("/categories/{slug}")
+async def get_category_by_slug(slug: str):
+    cat = await db.categories.find_one({"slug": slug}, {"_id": 0})
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    subcats = await db.categories.find({"parent_id": cat["id"]}, {"_id": 0}).sort("display_order", 1).to_list(50)
+    cat["subcategories"] = subcats
+    return cat
+
+@api_router.post("/admin/categories")
+async def create_category(body: CategoryCreate, request: Request):
+    await require_admin(request)
+    cat_id = f"cat_{uuid.uuid4().hex[:8]}"
+    slug = body.slug or body.name.lower().replace(" ", "-").replace("&", "and")
+    existing_slug = await db.categories.find_one({"slug": slug}, {"_id": 0})
+    if existing_slug:
+        slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+    max_order = await db.categories.find_one({"parent_id": body.parent_id}, {"_id": 0}, sort=[("display_order", -1)])
+    display_order = (max_order.get("display_order", 0) + 1) if max_order else 0
+    doc = {
+        "id": cat_id, "name": body.name, "slug": slug, "description": body.description,
+        "image": body.image, "parent_id": body.parent_id, "display_order": display_order,
+        "visible": body.visible, "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.categories.insert_one(doc)
+    created = await db.categories.find_one({"id": cat_id}, {"_id": 0})
+    return created
+
+@api_router.put("/admin/categories/{cat_id}")
+async def update_category(cat_id: str, body: CategoryUpdate, request: Request):
+    await require_admin(request)
+    existing = await db.categories.find_one({"id": cat_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+    updates = {k: v for k, v in body.model_dump(exclude_none=True).items()}
+    if updates:
+        await db.categories.update_one({"id": cat_id}, {"$set": updates})
+    updated = await db.categories.find_one({"id": cat_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/admin/categories/{cat_id}")
+async def delete_category(cat_id: str, request: Request):
+    await require_admin(request)
+    await db.categories.delete_many({"parent_id": cat_id})
+    result = await db.categories.delete_one({"id": cat_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"message": "Category deleted"}
+
+@api_router.patch("/admin/categories/{cat_id}/toggle")
+async def toggle_category_visibility(cat_id: str, request: Request):
+    await require_admin(request)
+    cat = await db.categories.find_one({"id": cat_id}, {"_id": 0})
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    await db.categories.update_one({"id": cat_id}, {"$set": {"visible": not cat.get("visible", True)}})
+    updated = await db.categories.find_one({"id": cat_id}, {"_id": 0})
+    return updated
+
+@api_router.post("/admin/categories/reorder")
+async def reorder_categories(body: ReorderRequest, request: Request):
+    await require_admin(request)
+    for item in body.items:
+        await db.categories.update_one({"id": item.id}, {"$set": {"display_order": item.display_order}})
+    return {"message": "Reorder successful"}
+
 # Admin-only menu management
 @api_router.post("/admin/menu/items")
 async def create_menu_item(body: MenuItemCreate, request: Request):
@@ -460,6 +568,9 @@ async def startup():
     await db.password_reset_tokens.create_index("token")
     await db.menu_items.create_index("id", unique=True)
     await db.menu_items.create_index("category")
+    await db.categories.create_index("id", unique=True)
+    await db.categories.create_index("slug", unique=True)
+    await db.categories.create_index("parent_id")
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
@@ -482,6 +593,35 @@ async def startup():
             except Exception:
                 pass
         logger.info(f"Seeded {len(SEED_ITEMS)} menu items")
+
+    # Seed categories
+    cat_count = await db.categories.count_documents({})
+    if cat_count == 0:
+        seed_cats = [
+            {"id": "cat-starters", "name": "Starters", "slug": "starters", "description": "Begin your journey with our carefully curated selection of appetizers and small plates.", "image": "https://images.unsplash.com/photo-1626200419199-391ae4be7a41?w=800&h=400&fit=crop", "parent_id": None, "display_order": 0, "visible": True},
+            {"id": "cat-mains", "name": "Mains", "slug": "mains", "description": "The heart of our collection. Signature entrees crafted with the finest seasonal ingredients.", "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&h=400&fit=crop", "parent_id": None, "display_order": 1, "visible": True},
+            {"id": "cat-drinks", "name": "Drinks", "slug": "drinks", "description": "Artisanal beverages and curated libations to complement every course.", "image": "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=800&h=400&fit=crop", "parent_id": None, "display_order": 2, "visible": True},
+            {"id": "cat-desserts", "name": "Desserts", "slug": "desserts", "description": "The sweet finale. Indulgent creations from our patisserie.", "image": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=800&h=400&fit=crop", "parent_id": None, "display_order": 3, "visible": True},
+            {"id": "sub-soups", "name": "Soups", "slug": "soups", "description": "Seasonal soups and broths.", "image": "", "parent_id": "cat-starters", "display_order": 0, "visible": True},
+            {"id": "sub-salads", "name": "Salads", "slug": "salads", "description": "Fresh garden salads.", "image": "", "parent_id": "cat-starters", "display_order": 1, "visible": True},
+            {"id": "sub-small-plates", "name": "Small Plates", "slug": "small-plates", "description": "Shareable small plates.", "image": "", "parent_id": "cat-starters", "display_order": 2, "visible": True},
+            {"id": "sub-meat", "name": "Meat", "slug": "meat", "description": "Premium cuts and preparations.", "image": "", "parent_id": "cat-mains", "display_order": 0, "visible": True},
+            {"id": "sub-seafood", "name": "Seafood", "slug": "seafood", "description": "Fresh catch and ocean fare.", "image": "", "parent_id": "cat-mains", "display_order": 1, "visible": True},
+            {"id": "sub-vegetarian", "name": "Vegetarian", "slug": "vegetarian", "description": "Plant-forward dishes.", "image": "", "parent_id": "cat-mains", "display_order": 2, "visible": True},
+            {"id": "sub-red-wine", "name": "Red Wine", "slug": "red-wine", "description": "Full-bodied reds.", "image": "", "parent_id": "cat-drinks", "display_order": 0, "visible": True},
+            {"id": "sub-white-wine", "name": "White Wine", "slug": "white-wine", "description": "Crisp whites.", "image": "", "parent_id": "cat-drinks", "display_order": 1, "visible": True},
+            {"id": "sub-sparkling", "name": "Sparkling", "slug": "sparkling", "description": "Champagne and prosecco.", "image": "", "parent_id": "cat-drinks", "display_order": 2, "visible": True},
+            {"id": "sub-non-alcoholic", "name": "Non-Alcoholic", "slug": "non-alcoholic", "description": "Refreshing beverages.", "image": "", "parent_id": "cat-drinks", "display_order": 3, "visible": True},
+            {"id": "sub-pastries", "name": "Pastries", "slug": "pastries", "description": "Freshly baked pastries.", "image": "", "parent_id": "cat-desserts", "display_order": 0, "visible": True},
+            {"id": "sub-chocolate", "name": "Chocolate", "slug": "chocolate", "description": "Chocolate indulgences.", "image": "", "parent_id": "cat-desserts", "display_order": 1, "visible": True},
+        ]
+        for cat in seed_cats:
+            cat["created_at"] = datetime.now(timezone.utc).isoformat()
+            try:
+                await db.categories.insert_one(cat)
+            except Exception:
+                pass
+        logger.info(f"Seeded {len(seed_cats)} categories")
 
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)
