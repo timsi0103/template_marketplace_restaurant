@@ -19,14 +19,15 @@ Create a food & beverage e-commerce website template serving restaurant owners, 
 ### Phase 3 - Mobile-First Responsive Design
 - [x] Bottom nav, cart drawer, horizontal scroll, sticky bars, touch targets
 
-### Phase 4 - Product/Menu Item Catalog (Current)
-- [x] **Full Menu Page**: Fetches from backend API, category tabs (All/Starters/Mains/Drinks/Desserts), sold out grayscale+overlay, seasonal badges
-- [x] **Item Detail Page**: Hero image, gallery carousel (prev/next/dots/thumbnails), availability badges (In Stock/Sold Out/Seasonal), full description
-- [x] **Sold Out State**: Grayscale image + overlay on catalog, grayscale + no controls + message on detail page
-- [x] **Admin Catalog Management**: Protected admin routes (role-based), table with image/name/category/price/status/toggle/edit/delete, search, category filter
-- [x] **Admin Add/Edit Form**: Name, description, price, category select, availability status, tags, multiple image URLs with preview
-- [x] **Backend CRUD**: POST/PUT/DELETE/PATCH for menu items, admin guard, 10 seeded items
-- [x] **Admin Route Protection**: AdminLayout with auth guard, redirects non-admin to /, unauthenticated to /login
+### Phase 4 - Product/Menu Item Catalog
+- [x] Full CRUD, gallery carousel, availability badges, admin catalog table
+
+### Phase 5 - Categories & Subcategories (Current)
+- [x] **Storefront Category Navigation**: Image-based category bar (All, Starters, Mains, Drinks, Desserts) with active/selected state, subcategory dropdown on click, secondary pill bar
+- [x] **Category Landing Page** (/menu/:slug): Hero image, description, subcategory filter bar, filtered item grid, back to all categories link
+- [x] **Admin Category Management** (/admin/categories): Table with drag-and-drop reorder, category images, slug, description, subcategory count, visibility toggle, edit/delete actions
+- [x] **Admin Add/Edit Category Form**: Name, slug, description, image URL, parent category selector (for subcategories), visibility toggle
+- [x] **Backend**: Full CRUD + reorder endpoint, 4 top-level + 12 subcategories seeded
 
 ## Test Credentials
 - Admin: admin@culinaryeditorial.com / Admin123!
@@ -40,4 +41,4 @@ Create a food & beverage e-commerce website template serving restaurant owners, 
 - Kitchen display with order management
 - Admin analytics with charts
 ### P2
-- Loyalty points, subscriptions, search, image upload, notifications
+- Loyalty points, subscriptions, search, notifications
