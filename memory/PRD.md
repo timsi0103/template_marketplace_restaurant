@@ -1,67 +1,43 @@
 # The Culinary Editorial - F&B E-Commerce Platform PRD
 
 ## Original Problem Statement
-Create a food & beverage e-commerce website template. The platform serves restaurant owners, food trucks, D2C food brands, bakeries, and similar F&B businesses covering ordering, delivery, pickup, dine-in, subscriptions, loyalty, kitchen operations, and admin management.
+Create a food & beverage e-commerce website template serving restaurant owners, food trucks, D2C food brands, bakeries.
 
 ## Architecture
-- **Frontend**: React + Tailwind CSS + Shadcn UI components
-- **Backend**: FastAPI + MongoDB (Motor async driver)
-- **Auth**: JWT (httpOnly cookies) + Emergent Google OAuth + Guest Sessions
-- **Cart**: React Context + localStorage persistence
-- **Design**: Cormorant Garamond (headings) + Manrope (body), #F8F5F0 bg, #6E1C1E primary, #E55A3D accent
+- **Frontend**: React + Tailwind CSS + Shadcn UI, relative API paths (/api/...)
+- **Backend**: FastAPI + MongoDB (Motor async), JWT + Emergent Google OAuth
+- **Design**: Cormorant Garamond + Manrope, #F8F5F0/#6E1C1E/#E55A3D
 
 ## What's Been Implemented
 
-### Phase 1 (Feb 2026) - Skeleton Template
-- [x] 8 page skeletons (Home, Menu, Product, Checkout, Admin, Orders, Loyalty, Kitchen)
-- [x] Navigation, Footer, responsive base layout
-- [x] Backend placeholder API routes
+### Phase 1 - Skeleton Template
+- [x] 8 page skeletons, Navigation, Footer
 
-### Phase 2 (Feb 2026) - Authentication & Identity
-- [x] JWT email/password auth (register, login, logout, forgot/reset password)
-- [x] Google OAuth via Emergent Auth
-- [x] Guest checkout with temporary sessions
-- [x] Session-aware navbar (avatar/name dropdown when logged in)
-- [x] Brute force protection, admin seeding
+### Phase 2 - Authentication & Identity
+- [x] JWT email/password, Google OAuth, Guest sessions, admin seeding
 
-### Phase 3 (Feb 2026) - Mobile-First Responsive Design
-- [x] Mobile Homepage: collapsed hero (image on top), stacked collections, horizontally scrollable Currently Craving cards
-- [x] Mobile Bottom Navigation: Discover, Menu, Orders, Profile tabs (hidden on checkout/admin/auth)
-- [x] Mobile Menu: sticky horizontal scrollable category bar, full-width horizontal food cards
-- [x] Mobile Cart Drawer: slide-up bottom sheet (vaul) with items, qty steppers, subtotal, checkout CTA
-- [x] Mobile Checkout: single column stacked layout, order summary on top, mobile CTA button
-- [x] Mobile Product Detail: sticky bottom bar with touch-optimized qty stepper + Add to Order
-- [x] Touch Interactions: 44px touch targets, active:scale feedback, scroll-snap categories
-- [x] CartContext: add/remove/update items, localStorage persistence, drawer state
-- [x] Cart Badge: orange count badge on navbar shopping bag icon
-- [x] Desktop layout fully preserved (bottom nav hidden, grid layouts intact)
+### Phase 3 - Mobile-First Responsive Design
+- [x] Bottom nav, cart drawer, horizontal scroll, sticky bars, touch targets
+
+### Phase 4 - Product/Menu Item Catalog (Current)
+- [x] **Full Menu Page**: Fetches from backend API, category tabs (All/Starters/Mains/Drinks/Desserts), sold out grayscale+overlay, seasonal badges
+- [x] **Item Detail Page**: Hero image, gallery carousel (prev/next/dots/thumbnails), availability badges (In Stock/Sold Out/Seasonal), full description
+- [x] **Sold Out State**: Grayscale image + overlay on catalog, grayscale + no controls + message on detail page
+- [x] **Admin Catalog Management**: Protected admin routes (role-based), table with image/name/category/price/status/toggle/edit/delete, search, category filter
+- [x] **Admin Add/Edit Form**: Name, description, price, category select, availability status, tags, multiple image URLs with preview
+- [x] **Backend CRUD**: POST/PUT/DELETE/PATCH for menu items, admin guard, 10 seeded items
+- [x] **Admin Route Protection**: AdminLayout with auth guard, redirects non-admin to /, unauthenticated to /login
 
 ## Test Credentials
 - Admin: admin@culinaryeditorial.com / Admin123!
 
 ## Prioritized Backlog
-
-### P0 - Critical (Next Phase)
-- Menu CRUD (create/read/update/delete menu items via admin)
-- Order placement flow (checkout → create order in DB)
-- Connect cart to real menu data from backend
-
-### P1 - High Priority
-- Order tracking with real-time status updates
-- Kitchen display system with order management
-- Admin analytics with real charts (Recharts)
+### P0
+- Order placement flow (cart → order creation)
 - Payment integration (Stripe)
-
-### P2 - Nice to Have
-- Loyalty points system
-- Subscription management
-- Search and filtering
-- Image upload for menu items
-- Push notifications for order status
-- Apple/Facebook OAuth (currently placeholders)
-
-## Next Tasks
-1. Implement menu CRUD via admin panel
-2. Build order placement flow (cart → order creation)
-3. Connect frontend pages to real backend data
-4. Add Stripe payment integration
+### P1
+- Order tracking real-time updates
+- Kitchen display with order management
+- Admin analytics with charts
+### P2
+- Loyalty points, subscriptions, search, image upload, notifications
