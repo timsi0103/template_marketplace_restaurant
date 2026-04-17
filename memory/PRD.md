@@ -1,17 +1,19 @@
 # The Culinary Editorial - F&B E-Commerce Platform PRD
 
 ## Original Problem Statement
-Create a food & beverage e-commerce website template. The platform serves restaurant owners, food trucks, D2C food brands, bakeries, and similar F&B businesses covering ordering, delivery, pickup, dine-in, subscriptions, loyalty, kitchen operations, and admin management. Only skeleton/template structure — features will be added in follow-up prompts.
+Create a food & beverage e-commerce website template. The platform serves restaurant owners, food trucks, D2C food brands, bakeries, and similar F&B businesses covering ordering, delivery, pickup, dine-in, subscriptions, loyalty, kitchen operations, and admin management.
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn UI components
 - **Backend**: FastAPI + MongoDB (Motor async driver)
-- **Design**: Cormorant Garamond (headings) + Manrope (body), off-white (#F8F5F0) background, dark maroon (#6E1C1E) primary, orange (#E55A3D) accent
+- **Auth**: JWT (httpOnly cookies) + Emergent Google OAuth + Guest Sessions
+- **Design**: Cormorant Garamond (headings) + Manrope (body), #F8F5F0 bg, #6E1C1E primary, #E55A3D accent
 
 ## User Personas
 1. **Customer**: Browse menu, order food, track orders, manage loyalty/subscriptions
 2. **Restaurant Owner / Admin**: Manage menu, view orders, dashboard analytics, kitchen ops
 3. **Kitchen Staff**: View and manage kitchen queue, order preparation
+4. **Guest**: Browse and checkout without creating an account
 
 ## Core Requirements (Static)
 - Home page with hero, collections, craving products
@@ -22,15 +24,30 @@ Create a food & beverage e-commerce website template. The platform serves restau
 - Order tracking with progress steps
 - Loyalty & subscriptions page
 - Kitchen operations display
+- Full authentication system
 
-## What's Been Implemented (Feb 2026)
+## What's Been Implemented
+
+### Phase 1 (Feb 2026) - Skeleton Template
 - [x] Full skeleton/template structure for all 8 pages
 - [x] Responsive layout matching reference design images
-- [x] Navigation bar with active state indicators
-- [x] Footer with brand links
-- [x] Backend API placeholder routes (menu, orders, admin, kitchen)
-- [x] All interactive elements have data-testid attributes
-- [x] Testing passed: 100% backend, 100% frontend
+- [x] Navigation bar, Footer, product cards, etc.
+- [x] Backend API placeholder routes
+
+### Phase 2 (Feb 2026) - Authentication & Identity
+- [x] Sign Up Page: email/password, name, social login (Google/Apple/Facebook), guest checkout
+- [x] Log In Page: email/password, forgot password link, social login buttons
+- [x] Password Reset Flow: enter email → confirmation screen, reset with token
+- [x] Session State: navbar shows avatar/initials + name + dropdown when logged in, Sign In/Sign Up when not
+- [x] Google OAuth: functional via Emergent-managed Google Auth
+- [x] Guest Checkout: creates temporary 24hr session, redirects to checkout
+- [x] Admin seeding: auto-creates admin user on startup
+- [x] Brute force protection: 5 failed attempts = 15min lockout
+- [x] User dropdown: My Profile, My Orders, Admin Dashboard (admin only), Sign Out
+- [x] Apple/Facebook social login buttons (MOCKED - visual placeholders)
+
+## Test Credentials
+- Admin: admin@culinaryeditorial.com / Admin123!
 
 ## Prioritized Backlog
 
@@ -38,7 +55,6 @@ Create a food & beverage e-commerce website template. The platform serves restau
 - Menu CRUD (create/read/update/delete menu items via admin)
 - Cart functionality (add/remove items, persist cart state)
 - Order placement flow (checkout → create order in DB)
-- Authentication (customer login, admin login)
 
 ### P1 - High Priority
 - Order tracking with real-time status updates
@@ -52,9 +68,10 @@ Create a food & beverage e-commerce website template. The platform serves restau
 - Search and filtering
 - Image upload for menu items
 - Email notifications (order confirmation, status updates)
+- Apple/Facebook OAuth (currently placeholders)
 
 ## Next Tasks
 1. Implement menu CRUD via admin panel
-2. Add cart state management
+2. Add cart state management (context + localStorage)
 3. Build order placement flow
-4. Add authentication (JWT or Google OAuth)
+4. Connect existing skeleton pages to real backend data
