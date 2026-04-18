@@ -14,6 +14,7 @@ import HomePage from "@/pages/HomePage";
 import MenuPage from "@/pages/MenuPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
 import CheckoutPage from "@/pages/CheckoutPage";
+import OrderSuccessPage from "@/pages/OrderSuccessPage";
 import OrderTrackingPage from "@/pages/OrderTrackingPage";
 import LoyaltyPage from "@/pages/LoyaltyPage";
 import KitchenPage from "@/pages/KitchenPage";
@@ -54,6 +55,7 @@ function AppRouter() {
           <Route path="/menu/:slug" element={<CategoryLandingPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/order/success" element={<OrderSuccessPage />} />
           <Route path="/orders" element={<OrderTrackingPage />} />
           <Route path="/loyalty" element={<LoyaltyPage />} />
           <Route path="/kitchen" element={<KitchenPage />} />

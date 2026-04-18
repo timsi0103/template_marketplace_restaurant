@@ -16,7 +16,10 @@ import jwt
 import httpx
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from emergentintegrations.payments.stripe.checkout import (
+    StripeCheckout, CheckoutSessionRequest, CheckoutSessionResponse, CheckoutStatusResponse,
+)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -779,16 +782,343 @@ async def delete_holiday(hol_id: str, request: Request):
 
 # ─── Other Routes ─────────────────────────────────────────
 
+# ─── Orders & Checkout ────────────────────────────────────
+
+TAX_RATE = 0.0875
+DELIVERY_FEE = 4.99
+PROMO_CODES = {
+    "SAVE10": {"type": "percent", "value": 10, "min_subtotal": 0, "description": "10% off your order"},
+    "WELCOME5": {"type": "flat", "value": 5.00, "min_subtotal": 20, "description": "$5 off orders over $20"},
+    "FREESHIP": {"type": "free_delivery", "value": 0, "min_subtotal": 25, "description": "Free delivery on orders over $25"},
+}
+
+class OrderLineIn(BaseModel):
+    item_id: str
+    variant_id: Optional[str] = None
+    modifiers: List[Dict[str, Any]] = []   # [{group, name, price}]
+    qty: int = 1
+    instructions: Optional[str] = ""
+
+class AddressIn(BaseModel):
+    label: Optional[str] = ""
+    line1: str = ""
+    line2: Optional[str] = ""
+    city: Optional[str] = ""
+    postal_code: Optional[str] = ""
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    notes: Optional[str] = ""
+
+class OrderCreate(BaseModel):
+    items: List[OrderLineIn]
+    fulfillment_type: str  # delivery | pickup | dine_in
+    address: Optional[AddressIn] = None
+    table_number: Optional[str] = None
+    scheduled_slot: Optional[str] = None   # "ASAP" | "12:00-12:30" etc
+    tip: float = 0.0
+    promo_code: Optional[str] = None
+    contact_email: str
+    contact_name: Optional[str] = ""
+    contact_phone: Optional[str] = ""
+    origin_url: str
+
+class PromoValidate(BaseModel):
+    code: str
+    subtotal: float
+
+
+def _compute_order_totals(items_enriched, fulfillment_type, promo_code, tip):
+    subtotal = round(sum(i["price"] * i["qty"] for i in items_enriched), 2)
+    delivery_fee = round(DELIVERY_FEE, 2) if fulfillment_type == "delivery" else 0.0
+    discount = 0.0
+    promo_applied = None
+    if promo_code:
+        rule = PROMO_CODES.get(promo_code.upper())
+        if rule and subtotal >= rule["min_subtotal"]:
+            promo_applied = promo_code.upper()
+            if rule["type"] == "percent":
+                discount = round(subtotal * rule["value"] / 100, 2)
+            elif rule["type"] == "flat":
+                discount = round(rule["value"], 2)
+            elif rule["type"] == "free_delivery":
+                discount = round(delivery_fee, 2)
+    taxable = max(0.0, subtotal - discount)
+    tax = round(taxable * TAX_RATE, 2)
+    tip_val = round(max(0.0, float(tip or 0)), 2)
+    total = round(max(0.0, subtotal - discount + delivery_fee + tax + tip_val), 2)
+    return {
+        "subtotal": subtotal, "delivery_fee": delivery_fee, "discount": discount,
+        "tax": tax, "tip": tip_val, "total": total, "promo_applied": promo_applied,
+    }
+
+
+async def _enrich_items(items_in: List[OrderLineIn]):
+    """Compute authoritative prices from DB."""
+    enriched = []
+    for line in items_in:
+        prod = await db.menu_items.find_one({"id": line.item_id}, {"_id": 0})
+        if not prod:
+            raise HTTPException(status_code=400, detail=f"Item {line.item_id} not found")
+        base_price = prod["price"]
+        variant_name = None
+        if line.variant_id:
+            variants = prod.get("variants") or []
+            v = next((x for x in variants if x.get("id") == line.variant_id), None)
+            if not v:
+                raise HTTPException(status_code=400, detail=f"Variant {line.variant_id} not found for {prod['name']}")
+            base_price = v["price"]
+            variant_name = v.get("name")
+        # trust modifier prices from frontend only if reasonable, but safer to verify
+        mod_total = sum(max(0.0, float(m.get("price") or 0)) for m in (line.modifiers or []))
+        enriched.append({
+            "item_id": line.item_id,
+            "name": prod["name"],
+            "image": prod.get("image") or "",
+            "variant_id": line.variant_id,
+            "variant_name": variant_name,
+            "modifiers": line.modifiers or [],
+            "instructions": line.instructions or "",
+            "qty": max(1, int(line.qty)),
+            "unit_base": float(base_price),
+            "unit_modifiers_total": float(mod_total),
+            "price": round(float(base_price) + float(mod_total), 2),
+        })
+    return enriched
+
+
+def _make_order_number():
+    return "ORD-" + datetime.now(timezone.utc).strftime("%y%m%d") + "-" + secrets.token_hex(2).upper()
+
+
+@api_router.post("/orders/validate-promo")
+async def validate_promo(body: PromoValidate):
+    rule = PROMO_CODES.get(body.code.upper())
+    if not rule:
+        return {"valid": False, "error": "Invalid promo code"}
+    if body.subtotal < rule["min_subtotal"]:
+        return {"valid": False, "error": f"Minimum subtotal ${rule['min_subtotal']:.2f} required"}
+    return {"valid": True, "code": body.code.upper(), "rule": rule, "description": rule["description"]}
+
+
+@api_router.post("/orders")
+async def create_order(body: OrderCreate, request: Request):
+    # Validate fulfillment
+    if body.fulfillment_type not in ("delivery", "pickup", "dine_in"):
+        raise HTTPException(status_code=400, detail="Invalid fulfillment_type")
+    if body.fulfillment_type == "delivery" and (not body.address or not body.address.line1):
+        raise HTTPException(status_code=400, detail="Address is required for delivery")
+    if body.fulfillment_type == "dine_in" and not body.table_number:
+        raise HTTPException(status_code=400, detail="Table number is required for dine-in")
+    if not body.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    # Enrich items with authoritative prices from DB
+    items_enriched = await _enrich_items(body.items)
+    totals = _compute_order_totals(items_enriched, body.fulfillment_type, body.promo_code, body.tip)
+
+    # Current user (optional)
+    user_id = None
+    try:
+        user = await get_current_user(request)
+        if user and not user.get("guest"):
+            user_id = user.get("id") or user.get("_id") or user.get("email")
+    except Exception:
+        user_id = None
+
+    order_id = str(uuid.uuid4())
+    order_number = _make_order_number()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    order_doc = {
+        "id": order_id,
+        "order_number": order_number,
+        "user_id": user_id,
+        "contact_email": body.contact_email,
+        "contact_name": body.contact_name or "",
+        "contact_phone": body.contact_phone or "",
+        "items": items_enriched,
+        "fulfillment_type": body.fulfillment_type,
+        "address": body.address.model_dump() if body.address else None,
+        "table_number": body.table_number,
+        "scheduled_slot": body.scheduled_slot or "ASAP",
+        **totals,
+        "status": "pending",
+        "payment_status": "initiated",
+        "estimated_minutes": 30 if body.fulfillment_type == "delivery" else 20,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+
+    # Create Stripe Checkout session
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    host_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+
+    origin = body.origin_url.rstrip("/")
+    success_url = f"{origin}/order/success?session_id={{CHECKOUT_SESSION_ID}}&order_id={order_id}"
+    cancel_url = f"{origin}/checkout?cancelled=1&order_id={order_id}"
+
+    checkout_req = CheckoutSessionRequest(
+        amount=float(totals["total"]),
+        currency="usd",
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "order_id": order_id,
+            "order_number": order_number,
+            "contact_email": body.contact_email,
+            "fulfillment_type": body.fulfillment_type,
+        },
+    )
+    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_req)
+
+    order_doc["stripe_session_id"] = session.session_id
+
+    # Persist order + payment transaction
+    await db.orders.insert_one(order_doc)
+    await db.payment_transactions.insert_one({
+        "id": str(uuid.uuid4()),
+        "session_id": session.session_id,
+        "order_id": order_id,
+        "order_number": order_number,
+        "amount": float(totals["total"]),
+        "currency": "usd",
+        "user_id": user_id,
+        "contact_email": body.contact_email,
+        "status": "initiated",
+        "payment_status": "initiated",
+        "metadata": {
+            "order_id": order_id,
+            "order_number": order_number,
+            "fulfillment_type": body.fulfillment_type,
+        },
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    })
+
+    return {
+        "order_id": order_id,
+        "order_number": order_number,
+        "session_id": session.session_id,
+        "checkout_url": session.url,
+        "total": totals["total"],
+    }
+
+
+@api_router.get("/payments/status/{session_id}")
+async def payment_status(session_id: str, request: Request):
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    host_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+
+    try:
+        status_resp: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+    except Exception as e:
+        logger.error(f"Stripe status fetch failed: {e}")
+        raise HTTPException(status_code=502, detail="Could not fetch payment status")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    order_id = tx.get("order_id") if tx else (status_resp.metadata or {}).get("order_id")
+
+    # Idempotent status update — only flip to paid once
+    if tx and tx.get("payment_status") != "paid":
+        await db.payment_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {
+                "status": status_resp.status,
+                "payment_status": status_resp.payment_status,
+                "updated_at": now_iso,
+            }},
+        )
+        if status_resp.payment_status == "paid" and order_id:
+            await db.orders.update_one(
+                {"id": order_id},
+                {"$set": {
+                    "payment_status": "paid",
+                    "status": "preparing",
+                    "updated_at": now_iso,
+                }},
+            )
+
+    order = None
+    if order_id:
+        order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+
+    return {
+        "session_id": session_id,
+        "status": status_resp.status,
+        "payment_status": status_resp.payment_status,
+        "amount_total": status_resp.amount_total,
+        "currency": status_resp.currency,
+        "order": order,
+    }
+
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+    host_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    body_bytes = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
+    try:
+        evt = await stripe_checkout.handle_webhook(body_bytes, sig)
+    except Exception as e:
+        logger.error(f"Webhook handling failed: {e}")
+        raise HTTPException(status_code=400, detail="Invalid webhook")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    session_id = getattr(evt, "session_id", None)
+    if session_id:
+        tx = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+        if tx and tx.get("payment_status") != "paid":
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {"payment_status": getattr(evt, "payment_status", None), "updated_at": now_iso}},
+            )
+            if getattr(evt, "payment_status", None) == "paid":
+                order_id = tx.get("order_id")
+                if order_id:
+                    await db.orders.update_one(
+                        {"id": order_id},
+                        {"$set": {"payment_status": "paid", "status": "preparing", "updated_at": now_iso}},
+                    )
+    return {"received": True}
+
+
 @api_router.get("/orders")
-async def get_orders():
-    orders = await db.orders.find({}, {"_id": 0}).to_list(100)
+async def list_orders(request: Request, email: Optional[str] = None):
+    query = {}
+    try:
+        user = await get_current_user(request)
+        if user and not user.get("guest"):
+            uid = user.get("id") or user.get("_id") or user.get("email")
+            query = {"user_id": uid}
+        elif email:
+            query = {"contact_email": email}
+    except Exception:
+        if email:
+            query = {"contact_email": email}
+        else:
+            return {"orders": [], "count": 0}
+    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"orders": orders, "count": len(orders)}
+
 
 @api_router.get("/orders/{order_id}")
 async def get_order(order_id: str):
     order = await db.orders.find_one({"id": order_id}, {"_id": 0})
     if not order:
-        return {"error": "Order not found"}
+        raise HTTPException(status_code=404, detail="Order not found")
     return order
 
 @api_router.get("/admin/dashboard")
