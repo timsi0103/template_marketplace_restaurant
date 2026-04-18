@@ -15,7 +15,21 @@
 7. Product Variants (size, weight, pack)
 8. Photo Gallery (grid view, lightbox, skeleton loading, admin image management)
 9. Operating Hours & Availability
-10. Shopping Cart with Real-Time Updates (current)
+10. Shopping Cart with Real-Time Updates
+11. Checkout Flow (5 steps + confirmation + guest) (current)
+
+### Phase 11 - Checkout Flow
+- [x] 5-step wizard: Fulfillment → Address → Time → Summary → Payment (Address auto-skipped for Pickup/Dine-In)
+- [x] Step 1 Fulfillment: Delivery/Pickup/Dine-In cards; Pickup shows store info; Dine-In requires table number
+- [x] Step 2 Address: Nominatim (OpenStreetMap) autocomplete + Leaflet map preview; saved addresses for logged-in users
+- [x] Step 3 Time: ASAP + 9 hardcoded slots with 2 sold-out greyed chips
+- [x] Step 4 Summary: itemized + contact (guest email required) + promo code (SAVE10/WELCOME5/FREESHIP) + tip (10/15/20/custom)
+- [x] Step 5 Payment: Stripe-powered info card (Card/Apple Pay/Google Pay) with terms checkbox; redirects to Stripe Checkout
+- [x] Order Confirmation (/order/success): polls /api/payments/status, shows order number, ETA, itemized summary, Track Order CTA; retry flow for unpaid sessions
+- [x] Guest checkout: works without login, email captured for receipt
+- [x] Backend: db.orders + db.payment_transactions; POST /api/orders, GET /api/orders/:id, GET /api/orders (user/email scoped), GET /api/payments/status/:id, POST /api/webhook/stripe, POST /api/orders/validate-promo
+- [x] Backend computes prices authoritatively from DB (security); tax 8.75%, delivery $4.99
+- [x] Tested via testing_agent_v3_fork iteration_11 — Frontend 100%, Backend 94.7%
 
 ### Phase 10 - Shopping Cart with Real-Time Updates
 - [x] Right-side slide-in sidebar using shadcn `Sheet` (replaces bottom Drawer)
@@ -43,6 +57,6 @@
 - Admin: admin@culinaryeditorial.com / Admin123!
 
 ## Backlog
-### P0: Order & Checkout Flow (address, pickup/delivery, payment method), Stripe payment
-### P1: Order tracking page, Kitchen display, Analytics
-### P2: Loyalty, subscriptions, search
+### P0: Wire Order Tracking page to GET /api/orders/:id (show live status, prep progress)
+### P1: Kitchen display queue (consume /api/kitchen/orders), admin orders table, Analytics
+### P2: Loyalty, subscriptions, search, real webhook signing
