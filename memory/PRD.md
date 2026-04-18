@@ -19,7 +19,18 @@
 11. Checkout Flow (5 steps + confirmation + guest)
 12. Global Payment Gateway screens
 13. Promo Code / Coupon Redemption
-14. Order Placement & Confirmation (current)
+14. Order Placement & Confirmation
+15. Order History & Reorder (current)
+
+### Phase 15 - Order History & Reorder
+- [x] New `/orders` customer order history page: logged-in user's orders (user_id match) + guest email lookup form
+- [x] Order rows: order number, date, items summary, total, fulfillment badge, status badge, favorite star, reorder button, detail link
+- [x] Favorites: `PATCH /api/orders/:id/favorite` (owner/admin scoped), starred orders pinned in a separate section above "All orders"
+- [x] Client-side Reorder dialog: cross-checks current `/api/menu/items` availability, lists unavailable items with reasons (sold out, seasonal, no longer on menu, variant unavailable), allows proceeding with available items only
+- [x] Empty state illustration + "Browse menu" CTA
+- [x] OrderTrackingPage: added "Reorder these items" CTA that deep-links to `/orders?reorder=<id>` and auto-opens dialog
+- [x] Navbar dropdown + Bottom nav Orders links wired
+- [x] Tested via testing_agent_v3_fork iteration_15 — Backend 100% (8/8), Frontend 100%. Testing agent fixed 2 user_id extraction bugs and 1 menu-status comparison bug.
 
 ### Phase 14 - Order Placement & Confirmation
 - [x] Public real-time tracking page `/orders/track/:order_id` with stepper (Order Received → Preparing → Ready/Out for Delivery → Delivered/Completed), live countdown timer, 10s polling
