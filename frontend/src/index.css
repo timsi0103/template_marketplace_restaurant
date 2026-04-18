@@ -84,3 +84,9 @@ code {
     border-bottom-color: inherit;
   }
 }
+
+@keyframes scale-in {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}

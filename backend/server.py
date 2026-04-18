@@ -1046,6 +1046,33 @@ async def payment_status(session_id: str, request: Request):
                     "updated_at": now_iso,
                 }},
             )
+            # ─── MOCKED saved card: persist a masked card for logged-in users ─
+            order_for_card = await db.orders.find_one({"id": order_id}, {"_id": 0})
+            if order_for_card and order_for_card.get("user_id"):
+                import random
+                brands = ["visa", "mastercard", "amex", "discover"]
+                brand = random.choice(brands)
+                last4 = f"{random.randint(0, 9999):04d}"
+                exp_m = random.randint(1, 12)
+                exp_y = datetime.now(timezone.utc).year + random.randint(1, 4)
+                # Avoid duplicates: same brand+last4 per user
+                exists = await db.payment_methods.find_one(
+                    {"user_id": order_for_card["user_id"], "brand": brand, "last4": last4},
+                    {"_id": 0},
+                )
+                if not exists:
+                    await db.payment_methods.insert_one({
+                        "id": str(uuid.uuid4()),
+                        "user_id": order_for_card["user_id"],
+                        "contact_email": order_for_card.get("contact_email"),
+                        "brand": brand,
+                        "last4": last4,
+                        "exp_month": exp_m,
+                        "exp_year": exp_y,
+                        "cardholder_name": order_for_card.get("contact_name") or "",
+                        "source": "mock_stripe_checkout",
+                        "created_at": now_iso,
+                    })
 
     order = None
     if order_id:
@@ -1120,6 +1147,69 @@ async def get_order(order_id: str):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
+
+# ─── Payment Methods (MOCKED saved cards for logged-in users) ──────
+
+class PaymentMethodCreate(BaseModel):
+    brand: str
+    last4: str
+    exp_month: int
+    exp_year: int
+    cardholder_name: Optional[str] = ""
+
+@api_router.get("/payment-methods")
+async def list_payment_methods(request: Request):
+    try:
+        user = await get_current_user(request)
+    except HTTPException:
+        return {"payment_methods": []}
+    if not user or user.get("guest"):
+        return {"payment_methods": []}
+    uid = user.get("id") or user.get("_id") or user.get("email")
+    methods = await db.payment_methods.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"payment_methods": methods}
+
+@api_router.post("/payment-methods")
+async def add_payment_method(body: PaymentMethodCreate, request: Request):
+    user = await get_current_user(request)
+    if not user or user.get("guest"):
+        raise HTTPException(status_code=401, detail="Login required to save payment methods")
+    uid = user.get("id") or user.get("_id") or user.get("email")
+    last4 = "".join(ch for ch in body.last4 if ch.isdigit())[-4:]
+    if len(last4) != 4:
+        raise HTTPException(status_code=400, detail="last4 must be 4 digits")
+    exists = await db.payment_methods.find_one(
+        {"user_id": uid, "brand": body.brand.lower(), "last4": last4},
+        {"_id": 0},
+    )
+    if exists:
+        return exists
+    doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": uid,
+        "contact_email": user.get("email"),
+        "brand": body.brand.lower(),
+        "last4": last4,
+        "exp_month": int(body.exp_month),
+        "exp_year": int(body.exp_year),
+        "cardholder_name": body.cardholder_name or "",
+        "source": "manual",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.payment_methods.insert_one(doc)
+    saved = await db.payment_methods.find_one({"id": doc["id"]}, {"_id": 0})
+    return saved
+
+@api_router.delete("/payment-methods/{method_id}")
+async def delete_payment_method(method_id: str, request: Request):
+    user = await get_current_user(request)
+    if not user or user.get("guest"):
+        raise HTTPException(status_code=401, detail="Login required")
+    uid = user.get("id") or user.get("_id") or user.get("email")
+    res = await db.payment_methods.delete_one({"id": method_id, "user_id": uid})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Payment method not found")
+    return {"deleted": True}
 
 @api_router.get("/admin/dashboard")
 async def admin_dashboard(request: Request):

@@ -92,8 +92,12 @@ export default function OrderSuccessPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
         {/* Success banner */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-green-100 border-4 border-green-200 flex items-center justify-center mx-auto mb-4 animate-[ping_0.6s_ease-out_1]">
-            <CheckCircle2 size={40} className="text-green-600" />
+          <div data-testid="success-check" className="relative w-24 h-24 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full bg-green-100 animate-[ping_1s_ease-out_1] opacity-60" />
+            <div className="absolute inset-0 rounded-full bg-green-100 border-4 border-green-200" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <CheckCircle2 size={48} className="text-green-600 animate-[scale-in_0.5s_cubic-bezier(0.175,0.885,0.32,1.275)_1]" style={{ transformOrigin: "center" }} />
+            </div>
           </div>
           <h1 data-testid="success-heading" className="font-heading text-3xl sm:text-4xl font-bold text-brand-text">
             Thank you! Your order is confirmed.

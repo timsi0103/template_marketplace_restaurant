@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
 import TimeSlotPicker from "@/components/checkout/TimeSlotPicker";
 import CheckoutStepper from "@/components/checkout/CheckoutStepper";
+import PaymentMethodSelector, { cardFormIsValid } from "@/components/checkout/PaymentMethodSelector";
 
 const STEPS = [
   { key: "fulfillment", label: "Fulfillment" },
@@ -49,6 +50,9 @@ export default function CheckoutPage() {
   });
   const [placing, setPlacing] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [payMethod, setPayMethod] = useState("card");
+  const [savedCardId, setSavedCardId] = useState(null);
+  const [cardForm, setCardForm] = useState({ number: "", expiry: "", cvv: "", name: "" });
 
   useEffect(() => {
     if (user?.email && !contact.email) {
@@ -93,7 +97,8 @@ export default function CheckoutPage() {
       case "summary":
         return !!contact.email && /\S+@\S+\.\S+/.test(contact.email);
       case "payment":
-        return agreeTerms;
+        if (!agreeTerms) return false;
+        return cardFormIsValid(payMethod, savedCardId, cardForm);
       default:
         return true;
     }
@@ -289,7 +294,14 @@ export default function CheckoutPage() {
                 total={pricing.total}
                 agreeTerms={agreeTerms}
                 setAgreeTerms={setAgreeTerms}
-                contact={contact}
+                contactEmail={contact.email}
+                payMethod={payMethod}
+                setPayMethod={setPayMethod}
+                savedCardId={savedCardId}
+                setSavedCardId={setSavedCardId}
+                cardForm={cardForm}
+                setCardForm={setCardForm}
+                isLoggedIn={!!user?.email && !user?.guest}
               />
             )}
 
@@ -587,51 +599,28 @@ function SummaryStep({
   );
 }
 
-function PaymentStep({ total, agreeTerms, setAgreeTerms, contact }) {
+function PaymentStep({
+  total, agreeTerms, setAgreeTerms, contactEmail,
+  payMethod, setPayMethod, savedCardId, setSavedCardId,
+  cardForm, setCardForm, isLoggedIn,
+}) {
   return (
     <div data-testid="step-payment">
       <h2 className="font-heading text-xl font-bold text-brand-text mb-1">Payment</h2>
       <p className="font-body text-sm text-brand-text-secondary mb-5 inline-flex items-center gap-1.5"><Lock size={12} /> Secure checkout powered by Stripe</p>
-
-      <div data-testid="payment-method-info" className="p-5 rounded-xl border-2 border-brand-primary bg-brand-primary/5 flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center flex-shrink-0">
-          <CreditCard size={18} />
-        </div>
-        <div className="flex-1">
-          <div className="font-heading font-bold text-brand-text">Card, Apple Pay, Google Pay</div>
-          <div className="font-body text-xs text-brand-text-secondary mt-0.5">
-            You'll be redirected to Stripe to complete your payment. All major cards, Apple Pay, and Google Pay are accepted.
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-body text-brand-text-secondary">
-            <span className="px-2 py-1 border border-brand-border rounded bg-brand-surface">Visa</span>
-            <span className="px-2 py-1 border border-brand-border rounded bg-brand-surface">Mastercard</span>
-            <span className="px-2 py-1 border border-brand-border rounded bg-brand-surface">Amex</span>
-            <span className="px-2 py-1 border border-brand-border rounded bg-brand-surface">Apple Pay</span>
-            <span className="px-2 py-1 border border-brand-border rounded bg-brand-surface">Google Pay</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-5 p-4 rounded-xl bg-brand-bg border border-brand-border">
-        <div className="flex items-center justify-between">
-          <span className="font-body text-sm text-brand-text-secondary">Amount to pay</span>
-          <span data-testid="payment-total" className="font-heading text-2xl font-bold text-brand-text">${total.toFixed(2)}</span>
-        </div>
-        <div className="mt-1 font-body text-xs text-brand-text-secondary">Receipt will be sent to {contact.email || "your email"}</div>
-      </div>
-
-      <label className="mt-5 flex items-start gap-3 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={agreeTerms}
-          onChange={(e) => setAgreeTerms(e.target.checked)}
-          className="mt-0.5 w-4 h-4 rounded border-brand-border accent-brand-primary"
-          data-testid="agree-terms-checkbox"
-        />
-        <span className="font-body text-xs text-brand-text-secondary">
-          I agree to the <span className="underline">Terms of Service</span> and <span className="underline">Privacy Policy</span>. I understand this is a test environment — no real charge will be made.
-        </span>
-      </label>
+      <PaymentMethodSelector
+        total={total}
+        method={payMethod}
+        setMethod={setPayMethod}
+        savedCardId={savedCardId}
+        setSavedCardId={setSavedCardId}
+        cardForm={cardForm}
+        setCardForm={setCardForm}
+        agreeTerms={agreeTerms}
+        setAgreeTerms={setAgreeTerms}
+        isLoggedIn={isLoggedIn}
+        contactEmail={contactEmail}
+      />
     </div>
   );
 }
