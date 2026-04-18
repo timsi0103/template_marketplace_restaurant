@@ -259,6 +259,29 @@ export default function OrderTrackingPage() {
             <PhoneCall size={14} /> +1 (555) 000-1234
           </a>
         </div>
+
+        {/* Reorder CTA */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            to="/orders"
+            data-testid="tracking-view-all-btn"
+            className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full hover:bg-brand-surface transition inline-flex items-center gap-2"
+          >
+            <Package size={14} /> All orders
+          </Link>
+          <Link
+            to={`/orders?reorder=${order.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              // Reorder is handled on the list page; send user there with query
+              window.location.href = `/orders?reorder=${order.id}`;
+            }}
+            data-testid="tracking-reorder-btn"
+            className="px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover inline-flex items-center gap-2"
+          >
+            Reorder these items
+          </Link>
+        </div>
       </div>
     </div>
   );

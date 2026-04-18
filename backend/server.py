@@ -1227,7 +1227,7 @@ async def list_orders(request: Request, email: Optional[str] = None):
     try:
         user = await get_current_user(request)
         if user and not user.get("guest"):
-            uid = user.get("id") or user.get("_id") or user.get("email")
+            uid = user.get("user_id") or user.get("id") or user.get("email")
             query = {"user_id": uid}
         elif email:
             query = {"contact_email": email}
@@ -1246,6 +1246,25 @@ async def get_order(order_id: str):
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
+
+@api_router.patch("/orders/{order_id}/favorite")
+async def toggle_order_favorite(order_id: str, request: Request):
+    """Toggle the 'starred' flag on an order — only the owner (or admin) can call this."""
+    user = await get_current_user(request)
+    if not user or user.get("guest"):
+        raise HTTPException(status_code=401, detail="Login required")
+    uid = user.get("user_id") or user.get("id") or user.get("email")
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.get("user_id") != uid and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not your order")
+    new_state = not bool(order.get("starred", False))
+    await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {"starred": new_state, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"id": order_id, "starred": new_state}
 
 # ─── Payment Methods (MOCKED saved cards for logged-in users) ──────
 
