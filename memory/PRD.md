@@ -18,7 +18,19 @@
 10. Shopping Cart with Real-Time Updates
 11. Checkout Flow (5 steps + confirmation + guest)
 12. Global Payment Gateway screens
-13. Promo Code / Coupon Redemption (current)
+13. Promo Code / Coupon Redemption
+14. Order Placement & Confirmation (current)
+
+### Phase 14 - Order Placement & Confirmation
+- [x] Public real-time tracking page `/orders/track/:order_id` with stepper (Order Received → Preparing → Ready/Out for Delivery → Delivered/Completed), live countdown timer, 10s polling
+- [x] Per-fulfillment stepper variants (delivery/pickup/dine_in)
+- [x] Rejection banner with reason when status=rejected
+- [x] OrderSuccessPage: collapsible styled email receipt preview (From/To/Subject + order meta + itemized + CTA + footer) — MOCKED (visual only, not sent)
+- [x] OrderSuccessPage: enhanced failed state with reason label + retry + back-to-menu
+- [x] Admin New-Orders panel on dashboard: 6s polling, Web Audio generated chime on new arrivals, persisted mute toggle, pulsing red count badge, Accept/Reject (with reason prompt) / View actions
+- [x] Backend: GET /api/admin/orders/new (since filter), POST /accept, POST /reject, POST /advance (cycles status pipeline per fulfillment)
+- [x] Public GET /api/orders/:id (order_id acts as auth token for tracking link)
+- [x] Tested via testing_agent_v3_fork iteration_14 — Backend 100%, Frontend 100%
 
 ### Phase 13 - Promo Code / Coupon Redemption
 - [x] Promo codes moved from hardcoded dict → `promo_codes` MongoDB collection
