@@ -7,6 +7,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BottomNav from "@/components/layout/BottomNav";
 import CartDrawer from "@/components/cart/CartDrawer";
+import { Toaster } from "@/components/ui/sonner";
 import StoreStatusBanner from "@/components/layout/StoreStatusBanner";
 import ClosedOverlay from "@/components/layout/ClosedOverlay";
 import HomePage from "@/pages/HomePage";
@@ -84,6 +85,7 @@ function AppRouter() {
       <Footer />
       <BottomNav />
       <CartDrawer />
+      <Toaster position="bottom-right" richColors closeButton />
     </>
   );
 }
