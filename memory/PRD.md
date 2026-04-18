@@ -14,7 +14,19 @@
 6. Modifiers & Add-Ons (required/optional, live pricing)
 7. Product Variants (size, weight, pack)
 8. Photo Gallery (grid view, lightbox, skeleton loading, admin image management)
-9. Operating Hours & Availability (current)
+9. Operating Hours & Availability
+10. Shopping Cart with Real-Time Updates (current)
+
+### Phase 10 - Shopping Cart with Real-Time Updates
+- [x] Right-side slide-in sidebar using shadcn `Sheet` (replaces bottom Drawer)
+- [x] Auto-opens on add-to-cart; persists in localStorage (`culinary_cart`)
+- [x] Empty state with "Browse Menu" CTA that navigates to /menu
+- [x] Line items show image, name, variant, modifiers, instructions, qty stepper, trash
+- [x] Real-time line totals + subtotal (reactive via CartContext)
+- [x] Minimum order banner ($15) with progress bar; disables Checkout + shows "$X more to checkout"
+- [x] Remove item triggers sonner undo toast (4s) that restores the item on click
+- [x] Global `<Toaster />` mounted in App.js (bottom-right, richColors)
+- [x] Tested by testing_agent_v3_fork iteration_10 — 100% pass
 
 ### Phase 9 - Operating Hours & Availability
 - [x] Navbar: Green dot "Open Now" + closing time, or Red pulsing dot "Closed" + next opening
@@ -31,6 +43,6 @@
 - Admin: admin@culinaryeditorial.com / Admin123!
 
 ## Backlog
-### P0: Order placement, Stripe payment
-### P1: Order tracking, Kitchen display, Analytics
+### P0: Order & Checkout Flow (address, pickup/delivery, payment method), Stripe payment
+### P1: Order tracking page, Kitchen display, Analytics
 ### P2: Loyalty, subscriptions, search
