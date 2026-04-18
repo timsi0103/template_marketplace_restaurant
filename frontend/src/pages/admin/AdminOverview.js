@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Plus, Pencil, BarChart3, ClipboardList, ArrowRight, Clock, Check, MoreHorizontal, Filter } from "lucide-react";
+import AdminNewOrdersPanel from "@/components/admin/AdminNewOrdersPanel";
 
 const queueItems = [
   { id: 104, type: "Table 12", items: "2 items", details: "Scallop Crudo, Wagyu Tartare", time: "4m ago", status: "READY TO SERVE" },
@@ -29,6 +30,12 @@ export default function AdminOverview() {
           <BarChart3 size={16} /> View Analytics
         </button>
       </div>
+
+      {/* Incoming orders — real-time */}
+      <div className="mb-8">
+        <AdminNewOrdersPanel />
+      </div>
+
       <div data-testid="stats-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
         <div data-testid="revenue-card" className="bg-brand-surface border border-brand-border rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">

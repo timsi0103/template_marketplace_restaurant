@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight, Mail, ChevronDown, ChevronUp } from "lucide-react";
 
 const POLL_INTERVAL = 2000;
 const MAX_ATTEMPTS = 10;
@@ -11,6 +11,7 @@ export default function OrderSuccessPage() {
   const orderIdParam = params.get("order_id");
 
   const [state, setState] = useState({ loading: true, status: "pending", payment_status: "pending", order: null, error: "" });
+  const [emailOpen, setEmailOpen] = useState(false);
   const attemptsRef = useRef(0);
 
   useEffect(() => {
@@ -67,17 +68,21 @@ export default function OrderSuccessPage() {
   }
 
   if (state.payment_status !== "paid") {
+    const reasonLabel = state.status === "expired" ? "Session expired" :
+                        state.payment_status === "failed" ? "Card declined" :
+                        "Payment not completed";
     return (
       <div data-testid="order-success-error" className="min-h-screen flex items-center justify-center bg-brand-bg px-4">
         <div className="text-center max-w-md">
           <div className="w-20 h-20 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto mb-5">
             <AlertCircle size={32} className="text-red-500" />
           </div>
-          <h1 className="font-heading text-2xl font-bold text-brand-text mb-2">Payment not completed</h1>
-          <p className="font-body text-sm text-brand-text-secondary mb-6">{state.error || "Your payment was not completed. Please try again."}</p>
+          <h1 className="font-heading text-2xl font-bold text-brand-text mb-2">{reasonLabel}</h1>
+          <p className="font-body text-sm text-brand-text-secondary mb-1">{state.error || "Your payment was not completed. Please try again."}</p>
+          <p data-testid="failed-reason" className="font-body text-[11px] uppercase tracking-widest text-brand-text-secondary mb-6">Reason · {state.payment_status || "unknown"}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link to="/checkout" data-testid="retry-checkout-btn" className="px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full">Try again</Link>
-            <Link to="/menu" className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full">Back to menu</Link>
+            <Link to="/menu" data-testid="back-to-menu-btn" className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full">Back to menu</Link>
           </div>
         </div>
       </div>
@@ -182,10 +187,34 @@ export default function OrderSuccessPage() {
           </div>
         </div>
 
+        {/* Email receipt preview (collapsible) */}
+        <div data-testid="email-preview-section" className="mt-6">
+          <button
+            data-testid="email-preview-toggle"
+            onClick={() => setEmailOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-brand-surface border border-brand-border hover:border-brand-primary/40 transition text-left"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0">
+                <Mail size={16} className="text-brand-primary" />
+              </div>
+              <div className="min-w-0">
+                <div className="font-heading text-sm font-bold text-brand-text">Preview receipt email</div>
+                <div className="font-body text-xs text-brand-text-secondary truncate">Sent to {order.contact_email}</div>
+              </div>
+            </div>
+            {emailOpen ? <ChevronUp size={16} className="text-brand-text-secondary" /> : <ChevronDown size={16} className="text-brand-text-secondary" />}
+          </button>
+
+          {emailOpen && (
+            <EmailPreview order={order} orderIdParam={orderIdParam} />
+          )}
+        </div>
+
         {/* CTAs */}
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link
-            to={`/orders${orderIdParam ? `?order_id=${orderIdParam}` : ""}`}
+            to={`/orders/track/${orderIdParam || order.id || ""}`}
             data-testid="track-order-btn"
             className="px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover transition inline-flex items-center justify-center gap-2"
           >
@@ -198,6 +227,103 @@ export default function OrderSuccessPage() {
           >
             Continue shopping <ArrowRight size={16} />
           </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Styled email template preview (marketing mockup) ───
+function EmailPreview({ order, orderIdParam }) {
+  const ItemRow = ({ it }) => (
+    <tr>
+      <td style={{ padding: "8px 0", fontSize: 13, color: "#1A1A1A", fontFamily: "Georgia, serif" }}>
+        {it.name} <span style={{ color: "#8A8A8A" }}>× {it.qty}</span>
+        {it.variant_name && <span style={{ display: "block", color: "#6E1C1E", fontSize: 11 }}>{it.variant_name}</span>}
+      </td>
+      <td align="right" style={{ padding: "8px 0", fontSize: 13, color: "#1A1A1A", fontFamily: "Georgia, serif" }}>${(it.price * it.qty).toFixed(2)}</td>
+    </tr>
+  );
+
+  const trackUrl = `/orders/track/${orderIdParam || order.id || ""}`;
+
+  return (
+    <div data-testid="email-preview-content" className="mt-3 rounded-2xl bg-white border border-brand-border overflow-hidden shadow-sm">
+      {/* Email header strip */}
+      <div className="px-5 py-3 bg-[#F8F5F0] border-b border-brand-border text-[11px] font-mono text-brand-text-secondary">
+        <div>From: receipts@culinaryeditorial.com</div>
+        <div>To: {order.contact_email}</div>
+        <div>Subject: Your order {order.order_number} is confirmed 🧑‍🍳</div>
+      </div>
+
+      {/* Email body */}
+      <div className="px-6 sm:px-10 py-8" style={{ backgroundColor: "#FAFAF7" }}>
+        <div className="text-center mb-6">
+          <div style={{ fontFamily: "Georgia, serif", color: "#6E1C1E", fontSize: 20, fontWeight: 600 }}>The Culinary Editorial</div>
+          <div style={{ fontSize: 11, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A", marginTop: 2 }}>Order Receipt</div>
+        </div>
+
+        <div className="text-center mb-6">
+          <h1 style={{ fontFamily: "Georgia, serif", fontSize: 26, color: "#1A1A1A", margin: 0 }}>Thank you, {(order.contact_name || order.contact_email.split("@")[0]).split(" ")[0]}</h1>
+          <p style={{ fontSize: 13, color: "#4A4A4A", marginTop: 6 }}>Your order <strong style={{ color: "#6E1C1E" }}>{order.order_number}</strong> has been confirmed and is being prepared.</p>
+        </div>
+
+        {/* Order meta */}
+        <div className="rounded-xl p-4 mb-6" style={{ background: "#F3EFE8", border: "1px solid #E5E0D8" }}>
+          <div className="grid grid-cols-2 gap-3 text-[12px] font-body text-[#1A1A1A]">
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A" }}>Estimated</div>
+              <div style={{ fontWeight: 600 }}>{order.scheduled_slot === "ASAP" ? `~${order.estimated_minutes || 30} min` : order.scheduled_slot}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A" }}>Fulfillment</div>
+              <div style={{ fontWeight: 600, textTransform: "capitalize" }}>{(order.fulfillment_type || "").replace("_", "-")}</div>
+            </div>
+            <div className="col-span-2">
+              <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A" }}>
+                {order.fulfillment_type === "delivery" ? "Delivery address" : order.fulfillment_type === "dine_in" ? "Table" : "Pickup location"}
+              </div>
+              <div style={{ fontWeight: 500 }}>
+                {order.fulfillment_type === "delivery" && order.address ? `${order.address.line1}${order.address.line2 ? `, ${order.address.line2}` : ""}, ${order.address.city || ""}` :
+                 order.fulfillment_type === "dine_in" ? `Table ${order.table_number}` :
+                 "123 Epicurean Way, New York, NY 10013"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Items */}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid #D9D4C9" }}>
+              <th align="left" style={{ padding: "8px 0", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A", fontWeight: 600 }}>Items</th>
+              <th align="right" style={{ padding: "8px 0", fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8A8A8A", fontWeight: 600 }}>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(order.items || []).map((it, i) => <ItemRow key={i} it={it} />)}
+          </tbody>
+          <tfoot style={{ borderTop: "2px solid #D9D4C9" }}>
+            <tr><td style={{ padding: "8px 0", fontSize: 12, color: "#6B6B6B" }}>Subtotal</td><td align="right" style={{ padding: "8px 0", fontSize: 12, color: "#6B6B6B" }}>${(order.subtotal || 0).toFixed(2)}</td></tr>
+            {order.discount > 0 && <tr><td style={{ padding: "4px 0", fontSize: 12, color: "#0F7A3F" }}>Discount{order.promo_applied ? ` (${order.promo_applied})` : ""}</td><td align="right" style={{ padding: "4px 0", fontSize: 12, color: "#0F7A3F" }}>−${order.discount.toFixed(2)}</td></tr>}
+            {order.fulfillment_type === "delivery" && <tr><td style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>Delivery fee</td><td align="right" style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>${(order.delivery_fee || 0).toFixed(2)}</td></tr>}
+            <tr><td style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>Tax</td><td align="right" style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>${(order.tax || 0).toFixed(2)}</td></tr>
+            {order.tip > 0 && <tr><td style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>Tip</td><td align="right" style={{ padding: "4px 0", fontSize: 12, color: "#6B6B6B" }}>${order.tip.toFixed(2)}</td></tr>}
+            <tr><td style={{ padding: "10px 0 0", fontSize: 14, color: "#1A1A1A", fontWeight: 700, fontFamily: "Georgia, serif" }}>Total</td><td align="right" style={{ padding: "10px 0 0", fontSize: 18, color: "#1A1A1A", fontWeight: 700, fontFamily: "Georgia, serif" }}>${(order.total || 0).toFixed(2)}</td></tr>
+          </tfoot>
+        </table>
+
+        {/* CTA */}
+        <div className="mt-6 text-center">
+          <a href={trackUrl} style={{ display: "inline-block", padding: "12px 28px", borderRadius: 999, background: "#6E1C1E", color: "white", textDecoration: "none", fontSize: 13, fontWeight: 600, letterSpacing: 0.3 }}>
+            Track your order
+          </a>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 pt-6 text-center" style={{ borderTop: "1px solid #E5E0D8" }}>
+          <p style={{ fontSize: 11, color: "#8A8A8A", margin: 0 }}>Questions? Reply to this email or reach us at <a href="mailto:support@culinaryeditorial.com" style={{ color: "#6E1C1E" }}>support@culinaryeditorial.com</a></p>
+          <p style={{ fontSize: 10, color: "#B0B0B0", marginTop: 6 }}>The Culinary Editorial · 123 Epicurean Way, New York, NY 10013</p>
         </div>
       </div>
     </div>

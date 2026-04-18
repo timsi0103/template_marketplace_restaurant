@@ -59,6 +59,7 @@ function AppRouter() {
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order/success" element={<OrderSuccessPage />} />
           <Route path="/orders" element={<OrderTrackingPage />} />
+          <Route path="/orders/track/:order_id" element={<OrderTrackingPage />} />
           <Route path="/loyalty" element={<LoyaltyPage />} />
           <Route path="/kitchen" element={<KitchenPage />} />
           <Route path="/admin" element={<AdminLayout />}>

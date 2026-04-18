@@ -1429,6 +1429,76 @@ async def admin_toggle_coupon(coupon_id: str, request: Request):
     doc = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
     return _coupon_doc(doc)
 
+# ─── Admin: Order workflow (accept / reject / list new / advance) ──
+
+class RejectBody(BaseModel):
+    reason: Optional[str] = ""
+
+@api_router.get("/admin/orders/new")
+async def admin_new_orders(since: Optional[str] = None, request: Request = None):
+    await require_admin(request)
+    query = {"payment_status": "paid", "status": {"$in": ["preparing", "pending"]}}
+    if since:
+        query["created_at"] = {"$gt": since}
+    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return {"orders": orders, "count": len(orders), "server_time": datetime.now(timezone.utc).isoformat()}
+
+@api_router.post("/admin/orders/{order_id}/accept")
+async def admin_accept_order(order_id: str, request: Request):
+    await require_admin(request)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {"status": "preparing", "accepted_at": now_iso, "updated_at": now_iso}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return order
+
+@api_router.post("/admin/orders/{order_id}/reject")
+async def admin_reject_order(order_id: str, body: RejectBody, request: Request):
+    await require_admin(request)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    res = await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {
+            "status": "rejected",
+            "rejection_reason": body.reason or "",
+            "rejected_at": now_iso,
+            "updated_at": now_iso,
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return order
+
+@api_router.post("/admin/orders/{order_id}/advance")
+async def admin_advance_order(order_id: str, request: Request):
+    """Advance order status along the tracking pipeline."""
+    await require_admin(request)
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    current = order.get("status", "pending")
+    flow = {
+        "pending": "preparing",
+        "preparing": "ready",
+        "ready": "delivered" if order.get("fulfillment_type") == "delivery" else "completed",
+        "out_for_delivery": "delivered",
+    }
+    # For delivery: ready → out_for_delivery → delivered
+    if order.get("fulfillment_type") == "delivery":
+        flow["ready"] = "out_for_delivery"
+    next_status = flow.get(current, current)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {"status": next_status, "updated_at": now_iso}},
+    )
+    return await db.orders.find_one({"id": order_id}, {"_id": 0})
+
 @api_router.get("/admin/dashboard")
 async def admin_dashboard(request: Request):
     await require_admin(request)
