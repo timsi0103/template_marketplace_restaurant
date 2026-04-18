@@ -2,12 +2,14 @@ import { Link, useLocation } from "react-router-dom";
 import { ShoppingBag, User, LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useStoreStatus } from "@/contexts/StoreStatusContext";
 import { useState, useRef, useEffect } from "react";
 
 export default function Navbar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   const { itemCount, setDrawerOpen } = useCart();
+  const { status: storeStatus } = useStoreStatus();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -59,6 +61,23 @@ export default function Navbar() {
           >
             The Culinary Editorial
           </Link>
+
+          {/* Store Status */}
+          {storeStatus && (
+            <div data-testid="store-status-indicator" className="hidden md:flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${storeStatus.is_open ? "bg-green-500" : "bg-red-500"} ${storeStatus.is_open ? "" : "animate-pulse"}`} />
+              <span className={`font-body text-xs font-medium ${storeStatus.is_open ? "text-green-600" : "text-red-500"}`}>
+                {storeStatus.is_open ? "Open Now" : "Closed"}
+              </span>
+              {storeStatus.is_open && storeStatus.close_time && (
+                <span className="font-body text-[10px] text-brand-text-secondary">&middot; Closes {storeStatus.close_time}</span>
+              )}
+              {!storeStatus.is_open && storeStatus.next_open && (
+                <span className="font-body text-[10px] text-brand-text-secondary">&middot; Opens {storeStatus.next_open}</span>
+              )}
+            </div>
+          )}
+
 
           {/* Nav Links */}
           <nav

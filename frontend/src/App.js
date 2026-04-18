@@ -2,10 +2,13 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { StoreStatusProvider } from "@/contexts/StoreStatusContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BottomNav from "@/components/layout/BottomNav";
 import CartDrawer from "@/components/cart/CartDrawer";
+import StoreStatusBanner from "@/components/layout/StoreStatusBanner";
+import ClosedOverlay from "@/components/layout/ClosedOverlay";
 import HomePage from "@/pages/HomePage";
 import MenuPage from "@/pages/MenuPage";
 import ProductDetailPage from "@/pages/ProductDetailPage";
@@ -27,6 +30,8 @@ import AdminCategoryForm from "@/pages/admin/AdminCategoryForm";
 import AdminModifiers from "@/pages/admin/AdminModifiers";
 import AdminModifierForm from "@/pages/admin/AdminModifierForm";
 import AdminVariants from "@/pages/admin/AdminVariants";
+import AdminHours from "@/pages/admin/AdminHours";
+import AdminHolidays from "@/pages/admin/AdminHolidays";
 import CategoryLandingPage from "@/pages/CategoryLandingPage";
 
 function AppRouter() {
@@ -38,7 +43,9 @@ function AppRouter() {
 
   return (
     <>
+      <StoreStatusBanner />
       <Navbar />
+      <ClosedOverlay />
       <div className="pb-16 md:pb-0">
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -61,6 +68,9 @@ function AppRouter() {
             <Route path="modifiers/new" element={<AdminModifierForm />} />
             <Route path="modifiers/:id/edit" element={<AdminModifierForm />} />
             <Route path="variants" element={<AdminVariants />} />
+            <Route path="holidays" element={<AdminHolidays />} />
+            <Route path="hours" element={<AdminHours />} />
+            <Route path="holidays" element={<AdminHolidays />} />
             <Route path="orders" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Orders</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Order management coming soon.</p></div>} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />
@@ -84,7 +94,9 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <CartProvider>
-            <AppRouter />
+            <StoreStatusProvider>
+              <AppRouter />
+            </StoreStatusProvider>
           </CartProvider>
         </AuthProvider>
       </BrowserRouter>
