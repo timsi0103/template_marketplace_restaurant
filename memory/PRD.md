@@ -16,7 +16,21 @@
 8. Photo Gallery (grid view, lightbox, skeleton loading, admin image management)
 9. Operating Hours & Availability
 10. Shopping Cart with Real-Time Updates
-11. Checkout Flow (5 steps + confirmation + guest) (current)
+11. Checkout Flow (5 steps + confirmation + guest)
+12. Global Payment Gateway screens (current)
+
+### Phase 12 - Global Payment Gateway
+- [x] Payment Method Selector with 4 active-state cards: Credit/Debit Card, Apple Pay, Google Pay, PayPal (all logos custom-rendered)
+- [x] On-page card input form with real-time brand detection (Visa/Mastercard/Amex/Discover/Diners/JCB)
+- [x] Luhn validation, MM/YY expiry parsing with expired-date detection, CVV length by brand (3/4)
+- [x] Pay CTA gated on: terms checkbox + (saved card OR non-card method OR fully valid card form)
+- [x] Saved Payment Methods (logged-in users): MOCKED — brand+last4+expiry stored in MongoDB, auto-persisted on successful paid order, delete + add-new controls
+- [x] Non-card method info panel explaining Stripe redirect
+- [x] Actual charge remains via real Stripe Checkout (hosted page)
+- [x] Backend: GET/POST/DELETE /api/payment-methods with auth, duplicate detection, last4 sanitization
+- [x] OrderSuccessPage animated checkmark (scale-in keyframe)
+- [x] Tested via testing_agent_v3_fork iteration_12 — Backend 100% (8/8), Frontend 100%
+- MOCKED: PayPal/Apple Pay/Google Pay visuals all route through Stripe Checkout; saved cards are mock brand+last4 only (never real card data)
 
 ### Phase 11 - Checkout Flow
 - [x] 5-step wizard: Fulfillment → Address → Time → Summary → Payment (Address auto-skipped for Pickup/Dine-In)
