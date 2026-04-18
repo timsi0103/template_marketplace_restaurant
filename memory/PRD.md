@@ -17,7 +17,24 @@
 9. Operating Hours & Availability
 10. Shopping Cart with Real-Time Updates
 11. Checkout Flow (5 steps + confirmation + guest)
-12. Global Payment Gateway screens (current)
+12. Global Payment Gateway screens
+13. Promo Code / Coupon Redemption (current)
+
+### Phase 13 - Promo Code / Coupon Redemption
+- [x] Promo codes moved from hardcoded dict → `promo_codes` MongoDB collection
+- [x] Seeded on startup: SAVE10 (10%), WELCOME5 ($5 min $20, first-order-only), FREESHIP (free delivery min $25), EXPIRED10 (demo expired)
+- [x] Types supported: `percent`, `fixed`, `free_delivery` (BOGO deferred per user choice)
+- [x] Backend `/api/orders/validate-promo` queries DB and enforces active, not-expired, usage_limit, min_subtotal, first_order_only, fulfillment compatibility (free_delivery requires delivery)
+- [x] Backend `_compute_order_totals` is async + DB-aware; used by POST /api/orders
+- [x] `usage_count` increments idempotently when an order flips to paid
+- [x] Admin CRUD: GET/POST/PUT/DELETE `/api/admin/coupons` + `PATCH /toggle`
+- [x] Cart sidebar: compact promo input with loading + clear (X), error text, green applied panel, discount preview line
+- [x] Checkout summary: full promo panel with loading spinner, clear button, inline error, green applied state
+- [x] Free-delivery visually shown as crossed-out delivery fee + green FREE badge in order summary
+- [x] Shared promo state in CartContext — codes entered in cart carry over to checkout
+- [x] Admin `/admin/coupons` list page with toggle, edit, delete + 'First-order only' and expired indicators
+- [x] Admin coupon form (create/edit) with type selector, value hidden for free_delivery, validation, expiry + usage limit
+- [x] Tested via testing_agent_v3_fork iteration_13 — Backend 100% (18/18), Frontend 100%
 
 ### Phase 12 - Global Payment Gateway
 - [x] Payment Method Selector with 4 active-state cards: Credit/Debit Card, Apple Pay, Google Pay, PayPal (all logos custom-rendered)
