@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { toast } from "sonner";
 
 const CartContext = createContext(null);
 const CART_KEY = "culinary_cart";
+const MIN_ORDER_AMOUNT = 15;
 
 function loadCart() {
   try {
@@ -21,8 +23,8 @@ let lineCounter = Date.now();
 export function CartProvider({ children }) {
   const [items, setItems] = useState(loadCart);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const undoRef = useRef(null);
 
-  // product: { id, name, price (base), image, modifiers: [{group, name, price}], variant: {id, name, price} | null, instructions }
   const addItem = useCallback((product) => {
     const modifiers = product.modifiers || [];
     const variant = product.variant || null;
@@ -69,8 +71,28 @@ export function CartProvider({ children }) {
 
   const removeItem = useCallback((cartLineId) => {
     setItems((prev) => {
+      const removed = prev.find((i) => i.cartLineId === cartLineId);
       const next = prev.filter((i) => i.cartLineId !== cartLineId);
       saveCart(next);
+
+      // Undo toast
+      if (removed) {
+        if (undoRef.current) toast.dismiss(undoRef.current);
+        undoRef.current = toast(`${removed.name} removed`, {
+          description: removed.variant ? `${removed.variant.name} — $${removed.price.toFixed(2)}` : `$${removed.price.toFixed(2)}`,
+          action: {
+            label: "Undo",
+            onClick: () => {
+              setItems((curr) => {
+                const restored = [...curr, removed];
+                saveCart(restored);
+                return restored;
+              });
+            },
+          },
+          duration: 4000,
+        });
+      }
       return next;
     });
   }, []);
@@ -94,10 +116,12 @@ export function CartProvider({ children }) {
 
   const itemCount = items.reduce((s, i) => s + i.qty, 0);
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const belowMinimum = subtotal > 0 && subtotal < MIN_ORDER_AMOUNT;
+  const amountToMinimum = MIN_ORDER_AMOUNT - subtotal;
 
   return (
     <CartContext.Provider
-      value={{ items, itemCount, subtotal, addItem, removeItem, updateQty, clearCart, drawerOpen, setDrawerOpen }}
+      value={{ items, itemCount, subtotal, addItem, removeItem, updateQty, clearCart, drawerOpen, setDrawerOpen, belowMinimum, amountToMinimum, MIN_ORDER_AMOUNT }}
     >
       {children}
     </CartContext.Provider>
