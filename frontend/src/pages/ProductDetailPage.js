@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Minus, Plus, ArrowLeft, ChevronLeft, ChevronRight, AlertCircle, Package } from "lucide-react";
+import { Minus, Plus, ArrowLeft, ChevronLeft, ChevronRight, AlertCircle, Package, X, ZoomIn } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -19,7 +19,22 @@ export default function ProductDetailPage() {
   const [selections, setSelections] = useState({});
   const [instructions, setInstructions] = useState("");
   const [errors, setErrors] = useState({});
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIdx, setLightboxIdx] = useState(0);
   const { addItem } = useCart();
+
+  // Keyboard nav for lightbox
+  const handleLightboxKey = useCallback((e) => {
+    if (!lightboxOpen) return;
+    if (e.key === "Escape") setLightboxOpen(false);
+    if (e.key === "ArrowRight") setLightboxIdx(p => (p + 1) % (displayImages?.length || 1));
+    if (e.key === "ArrowLeft") setLightboxIdx(p => (p === 0 ? (displayImages?.length || 1) - 1 : p - 1));
+  }, [lightboxOpen]);
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleLightboxKey);
+    return () => document.removeEventListener("keydown", handleLightboxKey);
+  }, [handleLightboxKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -156,15 +171,21 @@ export default function ProductDetailPage() {
         <Link to="/menu" data-testid="back-to-menu-btn" className="inline-flex items-center gap-2 font-body text-sm text-brand-text-secondary hover:text-brand-text transition-colors mb-4 sm:mb-6"><ArrowLeft size={16} /> Back to Menu</Link>
 
         {/* Gallery */}
-        <div data-testid="product-gallery" className="relative rounded-xl sm:rounded-2xl overflow-hidden mb-5 sm:mb-8 aspect-[4/3] sm:aspect-[16/8] bg-brand-bg">
+        <div data-testid="product-gallery" className="relative rounded-xl sm:rounded-2xl overflow-hidden mb-5 sm:mb-8 aspect-[4/3] sm:aspect-[16/8] bg-brand-bg cursor-zoom-in" onClick={() => { if (!effectivelySoldOut) { setLightboxIdx(activeImg); setLightboxOpen(true); } }}>
           <img src={displayImages[activeImg] || images[0]} alt={product.name} data-testid="product-image" className={`w-full h-full object-cover transition-opacity duration-300 ${effectivelySoldOut ? "grayscale opacity-60" : ""}`} />
           {effectivelySoldOut && <div className="absolute inset-0 flex items-center justify-center"><span className="px-6 py-2 bg-red-600/90 text-white text-sm font-body font-bold uppercase tracking-wider rounded-lg">Sold Out</span></div>}
+          {!effectivelySoldOut && (
+            <button data-testid="lightbox-open-btn" onClick={(e) => { e.stopPropagation(); setLightboxIdx(activeImg); setLightboxOpen(true); }}
+              className="absolute top-3 right-3 w-9 h-9 bg-brand-surface/80 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md hover:bg-brand-surface transition-colors">
+              <ZoomIn size={16} className="text-brand-text" />
+            </button>
+          )}
           {displayImages.length > 1 && (
             <>
-              <button data-testid="gallery-prev" onClick={prevImg} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronLeft size={18} /></button>
-              <button data-testid="gallery-next" onClick={nextImg} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronRight size={18} /></button>
+              <button data-testid="gallery-prev" onClick={(e) => { e.stopPropagation(); prevImg(); }} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronLeft size={18} /></button>
+              <button data-testid="gallery-next" onClick={(e) => { e.stopPropagation(); nextImg(); }} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronRight size={18} /></button>
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {displayImages.map((_, idx) => <button key={idx} onClick={() => setActiveImg(idx)} className={`w-2 h-2 rounded-full transition-all ${idx === activeImg ? "bg-white w-5" : "bg-white/50"}`} />)}
+                {displayImages.map((_, idx) => <button key={idx} onClick={(e) => { e.stopPropagation(); setActiveImg(idx); }} className={`w-2 h-2 rounded-full transition-all ${idx === activeImg ? "bg-white w-5" : "bg-white/50"}`} />)}
               </div>
             </>
           )}
@@ -351,6 +372,46 @@ export default function ProductDetailPage() {
               <span>{hasErrors ? "Complete selections" : "Add to Order"}</span><span>${total.toFixed(2)}</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Lightbox / Full-Screen Zoom ── */}
+      {lightboxOpen && (
+        <div data-testid="lightbox-overlay" className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center" onClick={() => setLightboxOpen(false)}>
+          {/* Close button */}
+          <button data-testid="lightbox-close" onClick={() => setLightboxOpen(false)} className="absolute top-4 right-4 sm:top-6 sm:right-6 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10">
+            <X size={20} />
+          </button>
+          {/* Counter */}
+          <span className="absolute top-5 left-1/2 -translate-x-1/2 font-body text-xs text-white/60">{lightboxIdx + 1} / {displayImages.length}</span>
+          {/* Main image */}
+          <div className="w-full h-full flex items-center justify-center p-4 sm:p-12" onClick={(e) => e.stopPropagation()}>
+            <img src={displayImages[lightboxIdx]} alt={product.name} className="max-w-full max-h-full object-contain rounded-lg select-none" draggable={false} />
+          </div>
+          {/* Nav arrows */}
+          {displayImages.length > 1 && (
+            <>
+              <button data-testid="lightbox-prev" onClick={(e) => { e.stopPropagation(); setLightboxIdx(p => (p === 0 ? displayImages.length - 1 : p - 1)); }}
+                className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+                <ChevronLeft size={22} />
+              </button>
+              <button data-testid="lightbox-next" onClick={(e) => { e.stopPropagation(); setLightboxIdx(p => (p === displayImages.length - 1 ? 0 : p + 1)); }}
+                className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors">
+                <ChevronRight size={22} />
+              </button>
+            </>
+          )}
+          {/* Thumbnail strip */}
+          {displayImages.length > 1 && (
+            <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 overflow-x-auto hide-scrollbar max-w-[80vw]">
+              {displayImages.map((url, idx) => (
+                <button key={idx} data-testid={`lightbox-thumb-${idx}`} onClick={(e) => { e.stopPropagation(); setLightboxIdx(idx); }}
+                  className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === lightboxIdx ? "border-white" : "border-white/20 opacity-50 hover:opacity-80"}`}>
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
