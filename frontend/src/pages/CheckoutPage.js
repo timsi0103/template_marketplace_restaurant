@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, ArrowRight, Truck, Store, Utensils, MapPin, Clock,
-  CreditCard, Lock, Tag, CheckCircle2, AlertCircle, Loader2,
+  CreditCard, Lock, Tag, CheckCircle2, AlertCircle, Loader2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ const DELIVERY_FEE = 4.99;
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, subtotal, clearCart } = useCart();
+  const { items, subtotal, clearCart, promo: cartPromo, applyPromoCode: applyPromoViaCart, clearPromo: clearPromoFromCart } = useCart();
   const [searchParams] = useSearchParams();
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -41,8 +41,11 @@ export default function CheckoutPage() {
   const [slot, setSlot] = useState("ASAP");
   const [tip, setTip] = useState(0);
   const [tipMode, setTipMode] = useState("none");
-  const [promoCode, setPromoCode] = useState("");
-  const [promoStatus, setPromoStatus] = useState({ valid: false, rule: null, error: "" });
+  const [promoCode, setPromoCode] = useState(cartPromo?.code || "");
+  const [promoStatus, setPromoStatus] = useState(
+    cartPromo?.rule ? { valid: true, rule: cartPromo.rule, error: "" } : { valid: false, rule: null, error: "" }
+  );
+  const [promoLoading, setPromoLoading] = useState(false);
   const [contact, setContact] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -71,16 +74,20 @@ export default function CheckoutPage() {
     const sub = subtotal;
     const deliveryFee = fulfillment === "delivery" ? DELIVERY_FEE : 0;
     let discount = 0;
+    let isFreeDelivery = false;
     if (promoStatus.valid && promoStatus.rule) {
       const r = promoStatus.rule;
       if (r.type === "percent") discount = sub * (r.value / 100);
-      else if (r.type === "flat") discount = r.value;
-      else if (r.type === "free_delivery") discount = deliveryFee;
+      else if (r.type === "fixed") discount = r.value;
+      else if (r.type === "free_delivery") {
+        discount = deliveryFee;
+        isFreeDelivery = true;
+      }
     }
     const taxable = Math.max(0, sub - discount);
     const tax = taxable * TAX_RATE;
     const total = Math.max(0, sub - discount + deliveryFee + tax + Number(tip || 0));
-    return { sub, deliveryFee, discount, tax, total };
+    return { sub, deliveryFee, discount, tax, total, isFreeDelivery };
   }, [subtotal, fulfillment, promoStatus, tip]);
 
   const canAdvance = () => {
@@ -129,16 +136,27 @@ export default function CheckoutPage() {
   };
 
   const applyPromo = async () => {
-    if (!promoCode.trim()) return;
+    if (!promoCode.trim() || promoLoading) return;
+    setPromoLoading(true);
     try {
       const res = await fetch("/api/orders/validate-promo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoCode.trim(), subtotal }),
+        body: JSON.stringify({
+          code: promoCode.trim(),
+          subtotal,
+          contact_email: contact.email || null,
+          fulfillment_type: fulfillment,
+        }),
       });
       const data = await res.json();
       if (data.valid) {
         setPromoStatus({ valid: true, rule: data.rule, error: "" });
+        try {
+          localStorage.setItem("culinary_promo", JSON.stringify({ code: data.code, rule: data.rule }));
+          // keep cart context in sync if it tracks promo
+          applyPromoViaCart(promoCode.trim());
+        } catch { /* noop */ }
         toast.success("Promo applied", { description: data.description });
       } else {
         setPromoStatus({ valid: false, rule: null, error: data.error || "Invalid code" });
@@ -146,7 +164,16 @@ export default function CheckoutPage() {
       }
     } catch {
       toast.error("Could not validate promo code");
+      setPromoStatus({ valid: false, rule: null, error: "Network error" });
+    } finally {
+      setPromoLoading(false);
     }
+  };
+
+  const clearPromo = () => {
+    setPromoCode("");
+    setPromoStatus({ valid: false, rule: null, error: "" });
+    clearPromoFromCart();
   };
 
   const saveAddressIfNew = () => {
@@ -278,6 +305,8 @@ export default function CheckoutPage() {
                 setPromoCode={setPromoCode}
                 promoStatus={promoStatus}
                 applyPromo={applyPromo}
+                clearPromo={clearPromo}
+                promoLoading={promoLoading}
                 tip={tip}
                 setTip={setTip}
                 tipMode={tipMode}
@@ -452,7 +481,8 @@ function TimeStep({ slot, setSlot, fulfillment }) {
 
 function SummaryStep({
   items, pricing, contact, setContact, promoCode, setPromoCode, promoStatus,
-  applyPromo, tip, setTip, tipMode, setTipMode, fulfillment, slot, address, tableNumber, isGuest,
+  applyPromo, clearPromo, promoLoading, tip, setTip, tipMode, setTipMode,
+  fulfillment, slot, address, tableNumber, isGuest,
 }) {
   const setTipFromMode = (mode) => {
     setTipMode(mode);
@@ -542,27 +572,57 @@ function SummaryStep({
 
       <div className="mt-5">
         <Label className="font-body text-[10px] uppercase tracking-widest text-brand-text-secondary mb-1.5 flex items-center gap-1.5"><Tag size={12} /> Promo code</Label>
-        <div className="flex gap-2">
-          <Input
-            data-testid="promo-input"
-            value={promoCode}
-            onChange={(e) => setPromoCode(e.target.value)}
-            placeholder="SAVE10"
-            className="bg-brand-bg border-brand-border h-11 flex-1"
-          />
-          <button
-            data-testid="promo-apply-btn"
-            onClick={applyPromo}
-            className="px-4 py-2 bg-brand-text text-white font-body text-sm font-medium rounded-lg hover:bg-brand-text/90 transition-colors"
-          >
-            Apply
-          </button>
-        </div>
-        {promoStatus.valid && (
-          <p data-testid="promo-success" className="mt-1.5 text-xs text-green-700 font-body flex items-center gap-1"><CheckCircle2 size={12} /> {promoStatus.rule?.description}</p>
+        {promoStatus.valid ? (
+          <div data-testid="promo-applied" className="flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-green-300 bg-green-50">
+            <div className="flex items-center gap-2 min-w-0">
+              <CheckCircle2 size={16} className="text-green-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="font-body text-sm font-semibold text-green-800 truncate">{promoCode.toUpperCase()}</div>
+                <div className="font-body text-[11px] text-green-700 truncate">{promoStatus.rule?.description}</div>
+              </div>
+            </div>
+            <button
+              data-testid="promo-clear-btn"
+              onClick={clearPromo}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-green-300 bg-white text-green-700 hover:bg-green-100 font-body text-xs font-semibold transition"
+              aria-label="Remove promo code"
+            >
+              <X size={12} /> Remove
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                data-testid="promo-input"
+                value={promoCode}
+                onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); if (promoStatus.error) { /* clear error on edit */ } }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyPromo(); } }}
+                placeholder="SAVE10"
+                disabled={promoLoading}
+                className={`bg-brand-bg border-brand-border h-11 pr-9 uppercase tracking-wider font-mono ${
+                  promoStatus.error ? "border-red-400" : ""
+                }`}
+              />
+              {promoLoading && (
+                <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-brand-primary" />
+              )}
+            </div>
+            <button
+              data-testid="promo-apply-btn"
+              onClick={applyPromo}
+              disabled={promoLoading || !promoCode.trim()}
+              className="px-4 py-2 bg-brand-text text-white font-body text-sm font-medium rounded-lg hover:bg-brand-text/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-1.5"
+            >
+              {promoLoading ? <Loader2 size={14} className="animate-spin" /> : null}
+              Apply
+            </button>
+          </div>
         )}
         {!promoStatus.valid && promoStatus.error && (
-          <p data-testid="promo-error" className="mt-1.5 text-xs text-red-600 font-body">{promoStatus.error}</p>
+          <p data-testid="promo-error" className="mt-1.5 text-xs text-red-600 font-body inline-flex items-center gap-1">
+            <AlertCircle size={11} /> {promoStatus.error}
+          </p>
         )}
       </div>
 
@@ -647,8 +707,22 @@ function OrderSummaryCard({ items, pricing, fulfillment, slot }) {
         </div>
         <div className="space-y-2 py-3 border-b border-brand-border text-sm font-body">
           <Row label="Subtotal" value={`$${pricing.sub.toFixed(2)}`} testid="summary-subtotal" />
-          {pricing.discount > 0 && <Row label="Discount" value={`−$${pricing.discount.toFixed(2)}`} testid="summary-discount" className="text-green-700" />}
-          {fulfillment === "delivery" && <Row label="Delivery fee" value={`$${pricing.deliveryFee.toFixed(2)}`} testid="summary-delivery" />}
+          {pricing.discount > 0 && !pricing.isFreeDelivery && (
+            <Row label="Discount" value={`−$${pricing.discount.toFixed(2)}`} testid="summary-discount" className="text-green-700" />
+          )}
+          {fulfillment === "delivery" && (
+            pricing.isFreeDelivery ? (
+              <div data-testid="summary-free-delivery" className="flex items-center justify-between text-brand-text-secondary">
+                <span>Delivery fee</span>
+                <span className="inline-flex items-center gap-2">
+                  <span className="line-through text-brand-text-secondary/60">${pricing.deliveryFee.toFixed(2)}</span>
+                  <span data-testid="summary-delivery-free" className="font-semibold text-green-700">FREE</span>
+                </span>
+              </div>
+            ) : (
+              <Row label="Delivery fee" value={`$${pricing.deliveryFee.toFixed(2)}`} testid="summary-delivery" />
+            )
+          )}
           <Row label="Tax" value={`$${pricing.tax.toFixed(2)}`} testid="summary-tax" />
         </div>
         <div className="flex items-center justify-between pt-3 font-heading">

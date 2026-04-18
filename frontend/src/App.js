@@ -34,6 +34,8 @@ import AdminModifierForm from "@/pages/admin/AdminModifierForm";
 import AdminVariants from "@/pages/admin/AdminVariants";
 import AdminHours from "@/pages/admin/AdminHours";
 import AdminHolidays from "@/pages/admin/AdminHolidays";
+import AdminCoupons from "@/pages/admin/AdminCoupons";
+import AdminCouponForm from "@/pages/admin/AdminCouponForm";
 import CategoryLandingPage from "@/pages/CategoryLandingPage";
 
 function AppRouter() {
@@ -73,7 +75,9 @@ function AppRouter() {
             <Route path="variants" element={<AdminVariants />} />
             <Route path="holidays" element={<AdminHolidays />} />
             <Route path="hours" element={<AdminHours />} />
-            <Route path="holidays" element={<AdminHolidays />} />
+            <Route path="coupons" element={<AdminCoupons />} />
+            <Route path="coupons/new" element={<AdminCouponForm />} />
+            <Route path="coupons/:id/edit" element={<AdminCouponForm />} />
             <Route path="orders" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Orders</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Order management coming soon.</p></div>} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />

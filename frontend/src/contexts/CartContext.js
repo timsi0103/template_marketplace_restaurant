@@ -23,7 +23,40 @@ let lineCounter = Date.now();
 export function CartProvider({ children }) {
   const [items, setItems] = useState(loadCart);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [promo, setPromo] = useState(() => {
+    try {
+      const raw = localStorage.getItem("culinary_promo");
+      return raw ? JSON.parse(raw) : null;  // {code, rule}
+    } catch { return null; }
+  });
   const undoRef = useRef(null);
+
+  const applyPromoCode = useCallback(async (code) => {
+    if (!code?.trim()) return { ok: false, error: "Enter a promo code" };
+    try {
+      const subtotalNow = items.reduce((s, i) => s + i.price * i.qty, 0);
+      const res = await fetch("/api/orders/validate-promo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim(), subtotal: subtotalNow }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        const next = { code: data.code, rule: data.rule };
+        setPromo(next);
+        localStorage.setItem("culinary_promo", JSON.stringify(next));
+        return { ok: true, rule: data.rule };
+      }
+      return { ok: false, error: data.error || "Invalid promo code" };
+    } catch {
+      return { ok: false, error: "Could not validate promo code" };
+    }
+  }, [items]);
+
+  const clearPromo = useCallback(() => {
+    setPromo(null);
+    localStorage.removeItem("culinary_promo");
+  }, []);
 
   const addItem = useCallback((product) => {
     const modifiers = product.modifiers || [];
@@ -112,6 +145,8 @@ export function CartProvider({ children }) {
   const clearCart = useCallback(() => {
     setItems([]);
     saveCart([]);
+    setPromo(null);
+    localStorage.removeItem("culinary_promo");
   }, []);
 
   const itemCount = items.reduce((s, i) => s + i.qty, 0);
@@ -121,7 +156,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider
-      value={{ items, itemCount, subtotal, addItem, removeItem, updateQty, clearCart, drawerOpen, setDrawerOpen, belowMinimum, amountToMinimum, MIN_ORDER_AMOUNT }}
+      value={{ items, itemCount, subtotal, addItem, removeItem, updateQty, clearCart, drawerOpen, setDrawerOpen, belowMinimum, amountToMinimum, MIN_ORDER_AMOUNT, promo, applyPromoCode, clearPromo }}
     >
       {children}
     </CartContext.Provider>

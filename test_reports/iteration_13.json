@@ -1,0 +1,107 @@
+{
+  "summary": "Completed comprehensive testing of Promo Code / Coupon Redemption System (Iteration 13). Backend: 18/18 tests passed (100%). Frontend: All coupon features working correctly including cart promo input, checkout promo, admin coupons CRUD, free delivery cross-out.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_coupons.py",
+    "/app/test_reports/pytest/pytest_results_coupons.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Seeded coupons correctly inserted on startup: SAVE10 (percent 10), WELCOME5 (fixed $5, min $20, first_order_only), FREESHIP (free_delivery, min $25), EXPIRED10 (percent 10, expires 2020-01-01)",
+    "Promo validation endpoint handles case-insensitive codes (save10 → SAVE10)",
+    "Expired codes return 'Code expired' error",
+    "FREESHIP with pickup fulfillment returns 'Free delivery code requires delivery fulfillment'",
+    "WELCOME5 first-order-only check works via _is_first_order() function",
+    "Admin coupons CRUD fully functional with auth protection (401/403 without auth)",
+    "BOGO type correctly rejected with 400 error",
+    "Toggle endpoint PATCH /toggle flips active boolean",
+    "Usage count increment is idempotent (only increments once per paid order)",
+    "_compute_order_totals is async and correctly calculates discounts",
+    "Cart promo input shows Tag icon, error states, applied panel with description",
+    "Checkout summary shows free delivery with crossed-out price and green FREE badge",
+    "Admin coupons list shows all seeded coupons with correct badges (First-order only, expired date in red)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_coupons.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (all coupon features working)"
+  },
+  "test_credentials": {
+    "admin": {
+      "email": "admin@culinaryeditorial.com",
+      "password": "Admin123!",
+      "role": "admin"
+    }
+  },
+  "seed_data_creation": "4 seeded coupons created on startup: SAVE10, WELCOME5, FREESHIP, EXPIRED10",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 13 Promo Code / Coupon Redemption System fully tested. Key features verified: (1) Backend: Seeded coupons in db.promo_codes, validate-promo endpoint with case-insensitive matching, expiry check, min_subtotal check, first_order_only check, free_delivery fulfillment check. Admin CRUD: GET/POST/PUT/DELETE/PATCH toggle all working with auth protection. BOGO type rejected. Usage count increments on paid order (idempotent). (2) Frontend Cart: Promo input with Tag icon, Apply button, error states (red text + toast), applied panel (green with description), discount line, clear button. (3) Frontend Checkout Summary: Promo input with loading spinner, applied panel, free delivery shows crossed-out price with green FREE badge. (4) Admin Coupons: List shows all coupons with type icons, value, min order, usage count, expiry (red if expired), active toggle, edit/delete buttons. WELCOME5 shows 'First-order only' badge. Form has type selector (percent/fixed/free_delivery), value input hides for free_delivery, first-order-only switch, active switch. MOCKED: None new - all coupon flows use real DB.",
+  "features_tested": {
+    "backend_promo_validation": {
+      "SAVE10_valid": "PASS - Returns valid=true with rule type=percent, value=10",
+      "case_insensitive": "PASS - 'save10' returns valid=true, code='SAVE10'",
+      "EXPIRED10_invalid": "PASS - Returns valid=false, error='Code expired'",
+      "FREESHIP_pickup_invalid": "PASS - Returns valid=false, error mentions delivery",
+      "FREESHIP_delivery_valid": "PASS - Returns valid=true with rule type=free_delivery",
+      "WELCOME5_below_min": "PASS - Returns valid=false, error mentions $20 minimum",
+      "WELCOME5_first_order": "PASS - Fresh email returns valid=true",
+      "invalid_code": "PASS - Returns valid=false, error='Invalid promo code'"
+    },
+    "backend_admin_coupons": {
+      "auth_required": "PASS - GET without auth returns 401",
+      "list_seeded": "PASS - Returns 4 seeded coupons",
+      "create": "PASS - POST creates new coupon",
+      "duplicate_fails": "PASS - Duplicate code returns 400",
+      "bogo_fails": "PASS - type='bogo' returns 400",
+      "update": "PASS - PUT updates value and expiry",
+      "toggle": "PASS - PATCH /toggle flips active boolean",
+      "delete": "PASS - DELETE removes coupon",
+      "delete_nonexistent": "PASS - DELETE non-existent returns 404"
+    },
+    "frontend_cart_promo": {
+      "promo_input_visible": "PASS - Input with Tag icon found",
+      "invalid_code_error": "PASS - 'XYZ' shows 'Invalid promo code' error",
+      "expired_code_error": "PASS - 'EXPIRED10' shows 'Code expired' error",
+      "valid_code_applied": "PASS - 'SAVE10' shows green applied panel",
+      "discount_line": "PASS - Shows 'Discount (SAVE10) −$4.20'",
+      "clear_button": "PASS - X button clears promo"
+    },
+    "frontend_checkout_promo": {
+      "promo_input_visible": "PASS - Input found on summary step",
+      "free_delivery_applied": "PASS - FREESHIP shows applied panel",
+      "delivery_fee_crossed": "PASS - Shows '$4.99' crossed out with 'FREE' badge",
+      "total_excludes_delivery": "PASS - Total is $45.24 (no delivery fee)"
+    },
+    "frontend_admin_coupons": {
+      "coupons_nav_entry": "PASS - 'Coupons' in sidebar navigation",
+      "coupons_list": "PASS - Shows all 4 seeded coupons",
+      "expired_red_date": "PASS - EXPIRED10 shows red '2020-01-01'",
+      "first_order_badge": "PASS - WELCOME5 shows 'First-order only' badge",
+      "toggle_switch": "PASS - Toggle switch present for each coupon",
+      "edit_delete_buttons": "PASS - Edit and delete buttons present"
+    },
+    "frontend_admin_coupon_form": {
+      "form_page_loads": "PASS - Form page with all elements",
+      "type_selector": "PASS - Percentage, Fixed amount, Free delivery options",
+      "value_hides_for_free_delivery": "PASS - Value input hidden when free_delivery selected",
+      "first_order_switch": "PASS - First-order-only switch present",
+      "active_switch": "PASS - Active switch present",
+      "save_button": "PASS - Create coupon button present"
+    }
+  },
+  "mocked_apis": {
+    "saved_payment_methods": "MOCKED - brand+last4 stored per user (from iteration 12)",
+    "paypal_apple_google_pay": "MOCKED - visual-only, routes through Stripe Checkout"
+  }
+}

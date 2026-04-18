@@ -786,11 +786,21 @@ async def delete_holiday(hol_id: str, request: Request):
 
 TAX_RATE = 0.0875
 DELIVERY_FEE = 4.99
-PROMO_CODES = {
-    "SAVE10": {"type": "percent", "value": 10, "min_subtotal": 0, "description": "10% off your order"},
-    "WELCOME5": {"type": "flat", "value": 5.00, "min_subtotal": 20, "description": "$5 off orders over $20"},
-    "FREESHIP": {"type": "free_delivery", "value": 0, "min_subtotal": 25, "description": "Free delivery on orders over $25"},
-}
+
+SEED_COUPONS = [
+    {"code": "SAVE10", "type": "percent", "value": 10.0, "min_subtotal": 0.0,
+     "description": "10% off your order", "usage_limit": None, "first_order_only": False,
+     "expires_at": None, "active": True},
+    {"code": "WELCOME5", "type": "fixed", "value": 5.0, "min_subtotal": 20.0,
+     "description": "$5 off orders over $20 (first order)", "usage_limit": None,
+     "first_order_only": True, "expires_at": None, "active": True},
+    {"code": "FREESHIP", "type": "free_delivery", "value": 0.0, "min_subtotal": 25.0,
+     "description": "Free delivery on orders over $25", "usage_limit": None,
+     "first_order_only": False, "expires_at": None, "active": True},
+    {"code": "EXPIRED10", "type": "percent", "value": 10.0, "min_subtotal": 0.0,
+     "description": "Demo expired coupon", "usage_limit": None, "first_order_only": False,
+     "expires_at": "2020-01-01", "active": True},
+]
 
 class OrderLineIn(BaseModel):
     item_id: str
@@ -825,30 +835,96 @@ class OrderCreate(BaseModel):
 class PromoValidate(BaseModel):
     code: str
     subtotal: float
+    contact_email: Optional[str] = None
+    fulfillment_type: Optional[str] = None
+
+class CouponCreate(BaseModel):
+    code: str
+    type: str  # percent | fixed | free_delivery
+    value: float = 0.0
+    min_subtotal: float = 0.0
+    description: Optional[str] = ""
+    usage_limit: Optional[int] = None
+    first_order_only: bool = False
+    expires_at: Optional[str] = None  # ISO date "YYYY-MM-DD"
+    active: bool = True
+
+class CouponUpdate(BaseModel):
+    code: Optional[str] = None
+    type: Optional[str] = None
+    value: Optional[float] = None
+    min_subtotal: Optional[float] = None
+    description: Optional[str] = None
+    usage_limit: Optional[int] = None
+    first_order_only: Optional[bool] = None
+    expires_at: Optional[str] = None
+    active: Optional[bool] = None
 
 
-def _compute_order_totals(items_enriched, fulfillment_type, promo_code, tip):
+async def _fetch_active_coupon(code: str):
+    if not code:
+        return None, None
+    doc = await db.promo_codes.find_one({"code": code.strip().upper()}, {"_id": 0})
+    if not doc:
+        return None, "Invalid promo code"
+    if not doc.get("active", True):
+        return doc, "Code is inactive"
+    if doc.get("expires_at"):
+        try:
+            exp = datetime.fromisoformat(doc["expires_at"]).date()
+            if exp < datetime.now(timezone.utc).date():
+                return doc, "Code expired"
+        except Exception:
+            pass
+    if doc.get("usage_limit") is not None:
+        if int(doc.get("usage_count", 0)) >= int(doc["usage_limit"]):
+            return doc, "Code usage limit reached"
+    return doc, None
+
+
+async def _is_first_order(contact_email: Optional[str], user_id: Optional[str]) -> bool:
+    q = []
+    if user_id:
+        q.append({"user_id": user_id, "payment_status": "paid"})
+    if contact_email:
+        q.append({"contact_email": contact_email, "payment_status": "paid"})
+    if not q:
+        return True
+    count = await db.orders.count_documents({"$or": q})
+    return count == 0
+
+
+async def _compute_order_totals(items_enriched, fulfillment_type, promo_code, tip,
+                                contact_email=None, user_id=None):
     subtotal = round(sum(i["price"] * i["qty"] for i in items_enriched), 2)
     delivery_fee = round(DELIVERY_FEE, 2) if fulfillment_type == "delivery" else 0.0
     discount = 0.0
     promo_applied = None
+    promo_type = None
     if promo_code:
-        rule = PROMO_CODES.get(promo_code.upper())
-        if rule and subtotal >= rule["min_subtotal"]:
-            promo_applied = promo_code.upper()
-            if rule["type"] == "percent":
-                discount = round(subtotal * rule["value"] / 100, 2)
-            elif rule["type"] == "flat":
-                discount = round(rule["value"], 2)
-            elif rule["type"] == "free_delivery":
-                discount = round(delivery_fee, 2)
+        doc, err = await _fetch_active_coupon(promo_code)
+        if doc and not err:
+            if subtotal < float(doc.get("min_subtotal", 0) or 0):
+                pass  # silently ignore insufficient subtotal at compute time
+            elif doc.get("first_order_only") and not await _is_first_order(contact_email, user_id):
+                pass
+            else:
+                promo_applied = doc["code"]
+                promo_type = doc["type"]
+                if doc["type"] == "percent":
+                    discount = round(subtotal * float(doc["value"]) / 100, 2)
+                elif doc["type"] == "fixed":
+                    discount = round(float(doc["value"]), 2)
+                elif doc["type"] == "free_delivery":
+                    discount = round(delivery_fee, 2)
     taxable = max(0.0, subtotal - discount)
     tax = round(taxable * TAX_RATE, 2)
     tip_val = round(max(0.0, float(tip or 0)), 2)
     total = round(max(0.0, subtotal - discount + delivery_fee + tax + tip_val), 2)
     return {
         "subtotal": subtotal, "delivery_fee": delivery_fee, "discount": discount,
-        "tax": tax, "tip": tip_val, "total": total, "promo_applied": promo_applied,
+        "tax": tax, "tip": tip_val, "total": total,
+        "promo_applied": promo_applied, "promo_type": promo_type,
     }
 
 
@@ -892,12 +968,24 @@ def _make_order_number():
 
 @api_router.post("/orders/validate-promo")
 async def validate_promo(body: PromoValidate):
-    rule = PROMO_CODES.get(body.code.upper())
-    if not rule:
-        return {"valid": False, "error": "Invalid promo code"}
-    if body.subtotal < rule["min_subtotal"]:
-        return {"valid": False, "error": f"Minimum subtotal ${rule['min_subtotal']:.2f} required"}
-    return {"valid": True, "code": body.code.upper(), "rule": rule, "description": rule["description"]}
+    doc, err = await _fetch_active_coupon(body.code)
+    if err:
+        return {"valid": False, "error": err}
+    if body.subtotal < float(doc.get("min_subtotal", 0) or 0):
+        return {"valid": False, "error": f"Minimum order ${float(doc['min_subtotal']):.2f} required"}
+    if doc.get("first_order_only"):
+        first = await _is_first_order(body.contact_email, None)
+        if not first:
+            return {"valid": False, "error": "This code is for first-time customers only"}
+    if doc["type"] == "free_delivery" and body.fulfillment_type and body.fulfillment_type != "delivery":
+        return {"valid": False, "error": "Free delivery code requires delivery fulfillment"}
+    rule = {
+        "type": doc["type"],
+        "value": float(doc.get("value") or 0),
+        "min_subtotal": float(doc.get("min_subtotal") or 0),
+        "description": doc.get("description") or "",
+    }
+    return {"valid": True, "code": doc["code"], "rule": rule, "description": rule["description"]}
 
 
 @api_router.post("/orders")
@@ -914,7 +1002,6 @@ async def create_order(body: OrderCreate, request: Request):
 
     # Enrich items with authoritative prices from DB
     items_enriched = await _enrich_items(body.items)
-    totals = _compute_order_totals(items_enriched, body.fulfillment_type, body.promo_code, body.tip)
 
     # Current user (optional)
     user_id = None
@@ -924,6 +1011,11 @@ async def create_order(body: OrderCreate, request: Request):
             user_id = user.get("id") or user.get("_id") or user.get("email")
     except Exception:
         user_id = None
+
+    totals = await _compute_order_totals(
+        items_enriched, body.fulfillment_type, body.promo_code, body.tip,
+        contact_email=body.contact_email, user_id=user_id,
+    )
 
     order_id = str(uuid.uuid4())
     order_number = _make_order_number()
@@ -1046,8 +1138,15 @@ async def payment_status(session_id: str, request: Request):
                     "updated_at": now_iso,
                 }},
             )
+            # ─── Increment promo_codes.usage_count if this order used one ─
+            paid_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+            if paid_order and paid_order.get("promo_applied"):
+                await db.promo_codes.update_one(
+                    {"code": paid_order["promo_applied"]},
+                    {"$inc": {"usage_count": 1}},
+                )
             # ─── MOCKED saved card: persist a masked card for logged-in users ─
-            order_for_card = await db.orders.find_one({"id": order_id}, {"_id": 0})
+            order_for_card = paid_order
             if order_for_card and order_for_card.get("user_id"):
                 import random
                 brands = ["visa", "mastercard", "amex", "discover"]
@@ -1211,6 +1310,125 @@ async def delete_payment_method(method_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Payment method not found")
     return {"deleted": True}
 
+# ─── Admin: Coupons / Promo Codes CRUD ─────────────────────
+
+def _coupon_doc(c: dict) -> dict:
+    return {
+        "id": c.get("id"),
+        "code": c.get("code"),
+        "type": c.get("type"),
+        "value": float(c.get("value") or 0),
+        "min_subtotal": float(c.get("min_subtotal") or 0),
+        "description": c.get("description") or "",
+        "usage_limit": c.get("usage_limit"),
+        "usage_count": int(c.get("usage_count") or 0),
+        "first_order_only": bool(c.get("first_order_only") or False),
+        "expires_at": c.get("expires_at"),
+        "active": bool(c.get("active", True)),
+        "created_at": c.get("created_at"),
+    }
+
+@api_router.get("/admin/coupons")
+async def admin_list_coupons(request: Request):
+    await require_admin(request)
+    docs = await db.promo_codes.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"coupons": [_coupon_doc(d) for d in docs]}
+
+@api_router.get("/admin/coupons/{coupon_id}")
+async def admin_get_coupon(coupon_id: str, request: Request):
+    await require_admin(request)
+    doc = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    return _coupon_doc(doc)
+
+@api_router.post("/admin/coupons")
+async def admin_create_coupon(body: CouponCreate, request: Request):
+    await require_admin(request)
+    code = body.code.strip().upper()
+    if not code:
+        raise HTTPException(status_code=400, detail="Code is required")
+    if body.type not in ("percent", "fixed", "free_delivery"):
+        raise HTTPException(status_code=400, detail="type must be percent|fixed|free_delivery")
+    existing = await db.promo_codes.find_one({"code": code})
+    if existing:
+        raise HTTPException(status_code=400, detail="Coupon code already exists")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "code": code,
+        "type": body.type,
+        "value": float(body.value or 0),
+        "min_subtotal": float(body.min_subtotal or 0),
+        "description": body.description or "",
+        "usage_limit": body.usage_limit,
+        "usage_count": 0,
+        "first_order_only": bool(body.first_order_only),
+        "expires_at": body.expires_at or None,
+        "active": bool(body.active),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.promo_codes.insert_one(doc)
+    return _coupon_doc(doc)
+
+@api_router.put("/admin/coupons/{coupon_id}")
+async def admin_update_coupon(coupon_id: str, body: CouponUpdate, request: Request):
+    await require_admin(request)
+    current = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    updates = {}
+    if body.code is not None:
+        new_code = body.code.strip().upper()
+        if new_code != current["code"]:
+            dup = await db.promo_codes.find_one({"code": new_code})
+            if dup:
+                raise HTTPException(status_code=400, detail="Coupon code already exists")
+        updates["code"] = new_code
+    if body.type is not None:
+        if body.type not in ("percent", "fixed", "free_delivery"):
+            raise HTTPException(status_code=400, detail="Invalid type")
+        updates["type"] = body.type
+    for k in ("value", "min_subtotal"):
+        v = getattr(body, k)
+        if v is not None:
+            updates[k] = float(v)
+    if body.description is not None:
+        updates["description"] = body.description
+    if body.usage_limit is not None:
+        updates["usage_limit"] = body.usage_limit
+    if body.first_order_only is not None:
+        updates["first_order_only"] = bool(body.first_order_only)
+    if body.expires_at is not None:
+        updates["expires_at"] = body.expires_at or None
+    if body.active is not None:
+        updates["active"] = bool(body.active)
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.promo_codes.update_one({"id": coupon_id}, {"$set": updates})
+    doc = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
+    return _coupon_doc(doc)
+
+@api_router.delete("/admin/coupons/{coupon_id}")
+async def admin_delete_coupon(coupon_id: str, request: Request):
+    await require_admin(request)
+    res = await db.promo_codes.delete_one({"id": coupon_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    return {"deleted": True}
+
+@api_router.patch("/admin/coupons/{coupon_id}/toggle")
+async def admin_toggle_coupon(coupon_id: str, request: Request):
+    await require_admin(request)
+    current = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
+    if not current:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    new_state = not bool(current.get("active", True))
+    await db.promo_codes.update_one(
+        {"id": coupon_id},
+        {"$set": {"active": new_state, "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    doc = await db.promo_codes.find_one({"id": coupon_id}, {"_id": 0})
+    return _coupon_doc(doc)
+
 @api_router.get("/admin/dashboard")
 async def admin_dashboard(request: Request):
     await require_admin(request)
@@ -1357,6 +1575,18 @@ async def startup():
         default_hours["sunday"]["dine_in"]["open_time"] = "11:00"
         await db.store_settings.insert_one({"type": "hours", "hours": default_hours, "pause_ordering": False, "created_at": datetime.now(timezone.utc).isoformat()})
         logger.info("Seeded default store hours")
+
+    # Seed default promo codes
+    existing_codes = {d["code"] async for d in db.promo_codes.find({}, {"_id": 0, "code": 1})}
+    for seed in SEED_COUPONS:
+        if seed["code"] not in existing_codes:
+            await db.promo_codes.insert_one({
+                "id": str(uuid.uuid4()),
+                **seed,
+                "usage_count": 0,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    logger.info(f"Promo codes seeded (total in DB after seed: {await db.promo_codes.count_documents({})})")
 
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)
