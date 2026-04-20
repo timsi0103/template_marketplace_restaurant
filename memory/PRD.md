@@ -30,7 +30,17 @@
 22. Prep Time Estimation & Order Throttling (Feb 2026)
 23. Quick 86 / Sold-Out Toggle (Feb 2026)
 24. Branded Storefront & Admin Customization (Feb 2026)
-25. Menu Catalog Browsing & Search Overhaul (Feb 2026 — current)
+25. Menu Catalog Browsing & Search Overhaul (Feb 2026)
+26. Guest Checkout + Post-Purchase Account Creation (Feb 2026 — current)
+
+### Phase 26 - Guest Checkout + Account Claim (Feb 2026)
+- [x] Backend `/app/backend/routes/guest_conversion.py`: POST `/api/auth/check-email` (returns {exists, auth_provider}) + POST `/api/auth/claim-orders` (validates order_id & email match, rejects if account exists (409), creates user, links every guest order on the email to the new user_id, accrues loyalty pts = Σ floor(order.total), sets auth cookies).
+- [x] Frontend `GuestCheckoutChoice` card: top of `/checkout`, two options (Sign in / Continue as guest) with benefits list; dismiss persists in localStorage `guest_choice_dismissed_v1`.
+- [x] `ReturningGuestHint`: debounced (450ms) email-exists check under summary-step email input; amber banner with deep-link `/login?redirect=/checkout&email=<typed>`.
+- [x] `LoginPage` now honours `?redirect=` and `?email=` query params.
+- [x] `PostPurchaseAccountCreate` card on `OrderSuccessPage` for guest orders only: email pre-filled (disabled) + single password + submit → transitions to `account-created-state` showing claimed order count + loyalty points; calls `refreshAuth()`.
+- [x] Admin guest badges: `admin-guest-badge-{id}` on `/admin/orders` list, `guest-badge-{id}` on Live Queue OrderCard, `incoming-guest-badge-{id}` on dashboard incoming panel.
+- [x] Tested: 6/6 backend pytest pass (`test_guest_conversion.py`), scripted frontend flows validated on /checkout, /login, /admin/orders, /admin dashboard, /admin/queue. 0 bugs.
 
 ### Phase 25 - Menu/Catalog Browsing & Search (Feb 2026)
 - [x] Backend `/app/backend/routes/catalog_settings.py`: GET `/api/catalog/settings` (public) + GET/PATCH `/api/admin/catalog/settings` for visible_dietary_tags, default_sort, quick_view_enabled, price_min/max, sticky_category_bar, show_in_stock_toggle. Sort + dietary tag inputs are validated against whitelists (400 on invalid sort).
