@@ -42,6 +42,15 @@ def cleanup(admin_session, created_redirect_ids):
     yield
     for rid in created_redirect_ids:
         admin_session.delete(f"{BASE_URL}/api/admin/seo/redirects/{rid}")
+    # Reset any test fixtures left on global SEO settings so public canonicals
+    # don't leak test values into production responses.
+    admin_session.patch(
+        f"{BASE_URL}/api/admin/seo/settings",
+        json={"site_url": "", "default_title_suffix": " — The Culinary Editorial", "twitter_handle": ""},
+    )
+    admin_session.patch(f"{BASE_URL}/api/admin/seo/pages/home", json={
+        "title": "", "description": "", "keywords": [], "og_image_url": "",
+    })
 
 
 # ─── Admin auth guards ──────────────────────────────────────────

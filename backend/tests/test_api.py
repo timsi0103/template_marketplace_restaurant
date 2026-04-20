@@ -45,13 +45,10 @@ class TestMenuEndpoints:
         print(f"✓ Menu items endpoint passed - {data['count']} items")
     
     def test_get_menu_item_not_found(self):
-        """Test /api/menu/items/{id} returns error for non-existent item"""
+        """Test /api/menu/items/{id} returns 404 for non-existent item"""
         response = requests.get(f"{BASE_URL}/api/menu/items/nonexistent-id")
-        assert response.status_code == 200  # Skeleton returns 200 with error message
-        data = response.json()
-        assert "error" in data
-        assert data["error"] == "Item not found"
-        print("✓ Menu item not found handled correctly")
+        assert response.status_code == 404
+        print("✓ Menu item not found handled correctly (404)")
     
     def test_get_categories(self):
         """Test /api/menu/categories returns categories list"""
@@ -77,39 +74,26 @@ class TestOrderEndpoints:
         print(f"✓ Orders endpoint passed - {data['count']} orders")
     
     def test_get_order_not_found(self):
-        """Test /api/orders/{id} returns error for non-existent order"""
+        """Test /api/orders/{id} returns 404 for non-existent order"""
         response = requests.get(f"{BASE_URL}/api/orders/nonexistent-id")
-        assert response.status_code == 200  # Skeleton returns 200 with error message
-        data = response.json()
-        assert "error" in data
-        assert data["error"] == "Order not found"
-        print("✓ Order not found handled correctly")
+        assert response.status_code == 404
+        print("✓ Order not found handled correctly (404)")
 
 
 class TestAdminEndpoints:
-    """Admin dashboard API endpoint tests"""
-    
-    def test_admin_dashboard(self):
-        """Test /api/admin/dashboard returns dashboard stats"""
+    """Admin dashboard API endpoint tests — admin routes now require auth."""
+
+    def test_admin_dashboard_requires_auth(self):
+        """Unauthenticated request to /api/admin/dashboard returns 401."""
         response = requests.get(f"{BASE_URL}/api/admin/dashboard")
-        assert response.status_code == 200
-        data = response.json()
-        assert "daily_revenue" in data
-        assert data["daily_revenue"] == 4285.00
-        assert "active_orders" in data
-        assert "menu_items" in data
-        assert "top_selling" in data
-        assert data["top_selling"] == "Truffle Risotto"
-        print(f"✓ Admin dashboard passed - Revenue: ${data['daily_revenue']}")
-    
-    def test_admin_queue(self):
-        """Test /api/admin/queue returns queue list"""
+        assert response.status_code == 401
+        print("✓ Admin dashboard auth guard enforced")
+
+    def test_admin_queue_requires_auth(self):
+        """Unauthenticated request to /api/admin/queue returns 401."""
         response = requests.get(f"{BASE_URL}/api/admin/queue")
-        assert response.status_code == 200
-        data = response.json()
-        assert "queue" in data
-        assert isinstance(data["queue"], list)
-        print(f"✓ Admin queue passed - {len(data['queue'])} items in queue")
+        assert response.status_code == 401
+        print("✓ Admin queue auth guard enforced")
 
 
 class TestKitchenEndpoints:

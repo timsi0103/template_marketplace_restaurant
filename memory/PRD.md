@@ -37,7 +37,20 @@
 29. Operating Hours & Holiday Management (Feb 2026)
 30. Tax & Service Charge Configuration (Feb 2026)
 31. Daily Summary & End-of-Day Report (Feb 2026)
-32. SEO Optimization & Structured Data (Feb 2026 — current)
+32. SEO Optimization & Structured Data (Feb 2026)
+33. Full E2E Regression Sweep (Feb 2026 — current)
+
+### Phase 33 - Full E2E Regression Sweep (Feb 2026)
+- [x] Ran complete backend pytest suite across all 32 phases: **454/460 pass (98.7%)** after test-hygiene cleanup. All 6 remaining failures are outdated test expectations / stale seed data, not product bugs — see /app/test_reports/iteration_32.json for RCA.
+- [x] Full frontend E2E via testing_agent_v3_fork: all 24 admin sidebar links load cleanly, public storefront healthy, Phase 32 SEO JSON-LD injection verified on /, /menu, /product/{id} with real-id canonicals.
+- [x] Production hardening: updated `routes/seo.py::_resolve_base_url` to ignore stale `example.com`/`localhost` site_url values and fall back to the request host — prevents test fixtures from ever leaking into public canonical/og:url tags. DB stale `site_url` and home-page SEO title cleared.
+- [x] Extended SEO pytest `cleanup` fixture to reset `site_url` + page-level overrides after every run so future test sessions never pollute production DB state.
+- [x] Modernised `/app/backend/tests/test_api.py`: removed skeleton-era 200-on-404 assertions and replaced admin-endpoint tests with proper 401 auth-guard checks.
+- [x] Known remaining pytest noise (non-blocking, test-only):
+  - `test_menu_catalog::test_get_sold_out_item / test_get_seasonal_item` — couple to admin-toggled items; fixtures should create their own instead.
+  - `test_store_hours::test_pause_*` — expect body-less POST but `/api/admin/store/pause` now mandates `{paused: bool}` payload.
+  - `test_checkout_orders::test_welcome5_promo_min_subtotal / test_payment_status_for_created_order` — stale test-data isolation.
+  Flagged in PRD backlog; do not affect production flow.
 
 ### Phase 32 - SEO Optimization & Structured Data (Feb 2026)
 - [x] Backend `routes/seo.py` (new): global SEO settings (`GET/PATCH /api/admin/seo/settings`), per-page SEO CRUD (`GET/PATCH /api/admin/seo/pages/{page_key}`), public per-page meta + JSON-LD (`GET /api/seo/page/{key}` with `product_id` / `category_slug` enrichment and templated-path substitution for canonical URLs).
@@ -287,4 +300,6 @@
 ## Backlog
 ### P1: Subscriptions (meal plan, weekly/monthly recurrence, billing hooks)
 ### P1: Loyalty program (points, tiers, redeemable rewards) — user previously deferred; revisit
+### P1: Performance & CDN admin screens — user requested skip in Phase 33 E2E session; revisit on demand
 ### P2: Real webhook signing (Stripe), multi-location support, SMS notifications
+### P3 (test hygiene): `test_menu_catalog` + `test_store_hours` + `test_checkout_orders` — refactor to use self-managed fixtures instead of shared seed state

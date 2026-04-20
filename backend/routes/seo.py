@@ -177,8 +177,10 @@ async def _storefront() -> dict:
 
 
 def _resolve_base_url(request: Request, global_seo: dict) -> str:
-    if global_seo.get("site_url"):
-        return global_seo["site_url"].rstrip("/")
+    cfg = (global_seo or {}).get("site_url", "")
+    # Only honour an explicit site_url when it looks real — avoid leaking test fixtures
+    if cfg and "example.com" not in cfg and "localhost" not in cfg:
+        return cfg.rstrip("/")
     try:
         return f"{request.url.scheme}://{request.url.netloc}"
     except Exception:
