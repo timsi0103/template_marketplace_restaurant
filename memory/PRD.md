@@ -25,7 +25,20 @@
 17. Checkout Bug Fix — 422 on POST /api/orders
 18. Admin Accept Order Bug Fix (Feb 2026)
 19. Order Ticket Printing / Thermal Printer (Feb 2026)
-20. Backend Refactor + Search + Analytics (Feb 2026 — current)
+20. Backend Refactor + Search + Analytics (Feb 2026)
+21. Real-Time Order Queue + Audio Alerts (Feb 2026 — current)
+
+### Phase 21 - Live Queue + Audio Alerts (Feb 2026)
+- [x] Backend: `GET /api/admin/queue/live` (active orders + today summary: orders_today, revenue_today, pending/in-progress counts, avg_prep_minutes); `POST /api/admin/orders-batch/accept` (batch accept with per-order auto-queue hook). Path intentionally `orders-batch` to avoid parametric collision with `/admin/orders/{id}/accept`.
+- [x] Frontend: `/admin/queue` full-width dashboard with 5 color-coded lanes (Incoming/Preparing/Ready/En-route/Completed), order cards with one-tap Accept/Reject/Advance/Reprint actions, highlighted special instructions, "time since placed" ticker.
+- [x] Reject flow: mandatory reason dropdown (Out of stock / Kitchen closed / Too busy / Other+note) → `/api/admin/orders/:id/reject`.
+- [x] Audio alerts: 4 Web-Audio-API synthesized chimes (bell, soft, ding, double — zero network cost), volume slider, mute toggle, escalation chime (triple-tap) after configurable 30/60/120s on unacknowledged incoming orders. Settings persisted in `localStorage` key `culinary_queue_settings_v1`.
+- [x] Desktop notifications: permission request + sample; fires only for new incoming orders.
+- [x] Batch accept UI: select multiple incoming orders, floating batch bar, one-click accept-all.
+- [x] Summary bar pinned to top: orders today, revenue, pending, in progress, avg prep.
+- [x] Filters: delivery/pickup/dine-in/all; Sort: oldest/newest/highest value.
+- [x] Sidebar entry "Live Queue" (Zap icon); `/admin` dashboard now has a prominent gradient CTA to the queue.
+- [x] Tested: 11/11 new pytest pass, 32/32 regression preserved; full frontend testid & interaction audit passed with 0 page errors.
 
 ### Phase 20 - Refactor + Search + Analytics (Feb 2026)
 - [x] **Refactor**: `server.py` (2,197 lines) → `server.py` (~70 lines) + `core.py` (app, api_router, db, auth helpers) + `models.py` (all Pydantic) + `seed.py` (startup seeding) + `routes/{auth,catalog,store,orders,payments,admin,kds,printers,search,analytics}.py`. Zero endpoint contract changes; 32/32 backend regression + 22/22 printer tests pass.
