@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Plus, ArrowLeft } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useSeo } from "@/hooks/useSeo";
 
 const API_BASE = "/api";
 
 export default function CategoryLandingPage() {
   const { slug } = useParams();
+  useSeo("category", { category_slug: slug });
   const [category, setCategory] = useState(null);
   const [items, setItems] = useState([]);
   const [activeSub, setActiveSub] = useState("all");

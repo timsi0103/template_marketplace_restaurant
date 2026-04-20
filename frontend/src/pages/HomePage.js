@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Heart, Plus, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useStorefront, applyStorefrontMeta } from "@/hooks/useStorefront";
+import { useSeo } from "@/hooks/useSeo";
 import { AboutSection, FeaturedCategories, SocialProofSection, BrandFooter } from "@/components/storefront/Sections";
 
 const heroProduct = {
@@ -41,6 +42,7 @@ export default function HomePage() {
   const { addItem } = useCart();
   const [cravingItems, setCravingItems] = useState(cravingFallback);
   const storefront = useStorefront();
+  useSeo("home");
 
   useEffect(() => {
     if (storefront) applyStorefrontMeta(storefront);

@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCart } from "@/contexts/CartContext";
+import { useSeo } from "@/hooks/useSeo";
 
 const API_BASE = "/api";
 
@@ -26,6 +27,7 @@ export default function ProductDetailPage() {
   const [lightboxIdx, setLightboxIdx] = useState(0);
   const { addItem, removeItem, items: cartItems, setDrawerOpen } = useCart();
   const editingLine = editLineId ? cartItems.find((i) => i.cartLineId === editLineId) : null;
+  useSeo("product", { product_id: id });
 
   // Keyboard nav for lightbox
   const handleLightboxKey = useCallback((e) => {

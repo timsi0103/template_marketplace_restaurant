@@ -29,6 +29,7 @@ import routes.uploads         # noqa: F401
 import routes.store_profile   # noqa: F401
 import routes.fees            # noqa: F401
 import routes.daily_summary   # noqa: F401
+import routes.seo             # noqa: F401
 
 from seed import run_startup_seed
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban, Palette, Filter, MapPin, Receipt, FileText } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban, Palette, Filter, MapPin, Receipt, FileText, Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const sidebarLinks = [
@@ -25,6 +25,7 @@ const sidebarLinks = [
   { label: "Print History", path: "/admin/print-jobs", icon: History },
   { label: "Analytics", path: "/admin/analytics", icon: BarChart3 },
   { label: "Daily Summary", path: "/admin/daily-summary", icon: FileText },
+  { label: "SEO", path: "/admin/seo", icon: Search },
   { label: "Customers", path: "/admin/customers", icon: Users },
   { label: "Settings", path: "/admin/settings", icon: Settings },
 ];

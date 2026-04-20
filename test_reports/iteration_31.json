@@ -1,0 +1,43 @@
+{
+  "summary": "Phase 32 SEO & Structured Data — full-stack E2E testing. Backend: 18/18 pytest pass (test_seo.py). Admin UI /admin/seo renders all 6 tabs (Per-Page, Structured Data, Global, Redirects, Sitemap & Robots, Health) with full interactivity. Public meta + JSON-LD injection verified on /, /menu, /product/{id}. One bug found: product page canonical URL leaks literal {id} template instead of actual product_id.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "useSeo / backend /api/seo/page/product",
+        "issue": "Canonical URL on product detail page is https://seo-test.example.com/product/%7Bid%7D (literal template) instead of the actual product id. Root cause in backend/routes/seo.py:373 — canonical falls back to f\"{base_url}{PAGE_PATHS['product']}\" which is \"/product/{id}\". The template placeholder is never substituted with the supplied product_id query param. Menu/category have a similar exposure with {slug} for category page.",
+        "selector": "link[rel=canonical] on /product/item-001",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seo.py",
+    "/app/test_reports/pytest/iteration_31_seo.xml"
+  ],
+  "action_items": [
+    "Fix canonical URL templating in /app/backend/routes/seo.py public_page_seo: when page_key == 'product' and product_id is provided, build canonical as f\"{base_url}/product/{product_id}\"; when page_key == 'category' and category_slug is provided, build canonical as f\"{base_url}/menu/{category_slug}\". Currently path = PAGE_PATHS.get(page_key) returns the un-substituted template.",
+    "Note for main agent: review request mentioned testid 'seo-tab-per-page' but actual testid is 'seo-tab-pages' — documentation drift only; functionality fine."
+  ],
+  "critical_code_review_comments": [
+    "routes/seo.py canonical fallback does not substitute route params ({id}, {slug}) — leads to bad SEO canonicals.",
+    "Redirect uniqueness check uses from_path only; fine. Status 409 surfaced correctly in admin UI (console shows 409 on duplicate attempt).",
+    "_build_structured_data makes N+1 queries per Menu type (one per category). Acceptable for typical menu sizes but could be cached on hot public endpoint.",
+    "/api/seo/sitemap.xml includes products + categories (31 URLs on test DB) — correct. Lastmod truncated to YYYY-MM-DD — good.",
+    "Admin SEO page title character counters, SERP preview, and OG card preview all update live — good UX.",
+    "Note: admin 'Saved' indicator stays even when edits are unsaved (visual only); minor."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "95% (all tabs + public injection; 1 canonical bug)"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123! (works)",
+  "seed_data_creation": "Pytest fixtures create/cleanup their own data. UI test created redirect /test-old-ui→/menu then deleted it. Admin Home page may still have leftover 'SEO Test Home Page Title' from a prior manual run (not from this iteration's pytest which cleans up).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test env var required: export REACT_APP_BACKEND_URL before pytest. All 6 SEO admin tabs use testids: seo-tab-pages (not seo-tab-per-page), seo-tab-structured, seo-tab-global, seo-tab-redirects, seo-tab-sitemap, seo-tab-health. Public meta injection confirmed: / has 3 JSON-LD blocks (Organization, Restaurant, WebSite); /menu has 2 (Menu, BreadcrumbList); /product/{id} has 2 (MenuItem, BreadcrumbList). Sitemap at /api/seo/sitemap.xml returns 200 with 31 URLs. Robots at /api/seo/robots.txt returns 200. Health endpoint returns score=88 with 3 pass / 4 warn / 0 fail.",
+  "rca_of_the_issue": "Canonical bug: In routes/seo.py public_page_seo(), after enriching 'page' with product context, the function computes canonical via `f\"{base_url}{path}\"` where path = PAGE_PATHS['product'] = '/product/{id}'. The literal string `{id}` is then URL-encoded to %7Bid%7D by the browser. Fix: when page_key is 'product' and product_id provided, use `/product/{product_id}`; same for 'category' + category_slug. Also set meta.canonical_url accordingly so <link rel=canonical> and og:url both reflect the real URL."
+}

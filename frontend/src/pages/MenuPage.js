@@ -5,6 +5,7 @@ import axios from "axios";
 import { useCart } from "@/contexts/CartContext";
 import FilterDrawer from "@/components/menu/FilterDrawer";
 import QuickViewModal from "@/components/menu/QuickViewModal";
+import { useSeo } from "@/hooks/useSeo";
 
 const API = "/api";
 
@@ -36,6 +37,7 @@ function SkeletonCard() {
 
 export default function MenuPage() {
   const { addItem } = useCart();
+  useSeo("menu");
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
