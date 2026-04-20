@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight, Mail, ChevronDown, ChevronUp, Printer } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import PostPurchaseAccountCreate from "@/components/checkout/PostPurchaseAccountCreate";
+import CancelOrderButton from "@/components/orders/CancelOrderButton";
 
 const POLL_INTERVAL = 2000;
 const MAX_ATTEMPTS = 10;
@@ -117,6 +118,7 @@ export default function OrderSuccessPage() {
 
         {/* Order card */}
         <div data-testid="success-order-card" className="bg-brand-surface border border-brand-border rounded-2xl p-6 sm:p-8">
+          <CancelOrderButton order={order} />
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-brand-border">
             <div>
               <div className="font-body text-[10px] uppercase tracking-widest text-brand-text-secondary">Order number</div>

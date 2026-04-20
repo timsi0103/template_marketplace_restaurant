@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Printer, Receipt as ReceiptIcon, Truck, Store, Utensils, Eye, Search as SearchIcon, X } from "lucide-react";
+import { Loader2, RefreshCw, Printer, Receipt as ReceiptIcon, Truck, Store, Utensils, Eye, Search as SearchIcon, X, Pencil } from "lucide-react";
+import AdminModifyOrderDrawer from "@/components/admin/AdminModifyOrderDrawer";
 
 const API = "/api";
 
@@ -28,6 +29,7 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("active"); // active | all
   const [q, setQ] = useState("");
+  const [manageId, setManageId] = useState(null);
 
   const load = async () => {
     try {
@@ -155,6 +157,13 @@ export default function AdminOrders() {
                           >
                             <Eye size={12} />
                           </Link>
+                          <button
+                            onClick={() => setManageId(o.id)}
+                            data-testid={`manage-order-${o.id}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 border border-brand-border rounded-md text-xs font-semibold hover:border-brand-primary/40 hover:text-brand-primary"
+                          >
+                            <Pencil size={12} /> Manage
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -165,6 +174,12 @@ export default function AdminOrders() {
           </div>
         </div>
       )}
+      <AdminModifyOrderDrawer
+        open={!!manageId}
+        orderId={manageId}
+        onClose={() => setManageId(null)}
+        onSaved={() => { setManageId(null); load(); }}
+      />
     </div>
   );
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import axios from "axios";
 import {
   Package, MapPin, Clock, CheckCircle2, ChefHat, Truck, Utensils,
-  AlertCircle, Loader2, CircleDot, Store, PhoneCall, Mail, Printer,
+  AlertCircle, Loader2, CircleDot, Store, PhoneCall, Mail, Printer, XCircle,
 } from "lucide-react";
+import CancelOrderButton, { PriceAdjustmentBanner } from "@/components/orders/CancelOrderButton";
 
 const POLL_INTERVAL = 10000;
 
@@ -142,6 +144,35 @@ export default function OrderTrackingPage() {
               <div className="font-body text-xs text-red-700 mt-0.5">{order.rejection_reason || "We're sorry — please try again or contact support."}</div>
             </div>
           </div>
+        )}
+
+        {order.status === "cancelled" && (
+          <div data-testid="tracking-cancelled" className="mb-6 p-4 rounded-xl border-2 border-slate-300 bg-slate-50 flex items-start gap-3">
+            <XCircle size={20} className="text-slate-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <div className="font-heading font-bold text-slate-800">Order cancelled {order.cancelled_by === "admin" ? "by the restaurant" : "by you"}</div>
+              <div className="font-body text-xs text-slate-700 mt-0.5">
+                {order.payment_status === "refunded"
+                  ? "Your refund has been initiated to your original payment method and will land within 3–5 business days."
+                  : order.refund_pending
+                    ? "A refund will be processed shortly."
+                    : "Thanks for letting us know."}
+                {order.cancellation_notes && <span className="block mt-1 italic">"{order.cancellation_notes}"</span>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <PriceAdjustmentBanner
+          order={order}
+          onAcknowledge={async () => {
+            try { await axios.post(`/api/orders/${order.id}/acknowledge-modification`); } catch { /* ignore */ }
+            setOrder({ ...order, modification_notification: { ...order.modification_notification, shown: true } });
+          }}
+        />
+
+        {order.status !== "cancelled" && order.status !== "rejected" && (
+          <CancelOrderButton order={order} onCancelled={() => { /* poll will refresh UI */ }} />
         )}
 
         {/* Header */}
