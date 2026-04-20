@@ -21,7 +21,15 @@
 13. Promo Code / Coupon Redemption
 14. Order Placement & Confirmation
 15. Order History & Reorder
-16. Kitchen Display System (KDS) (current)
+16. Kitchen Display System (KDS)
+17. Checkout Bug Fix — 422 on POST /api/orders (current)
+
+### Phase 17 - Checkout 422 Fix (Feb 2026)
+- [x] Root cause: `HomePage.js` "Currently Craving" used hardcoded numeric ids (1–4) not present in backend catalog — backend `OrderLineIn.item_id: str` Pydantic validation rejected them → 422
+- [x] Fix 1 (Frontend/HomePage.js): Fetch featured items from `/api/menu/items` so card IDs are real `item-XXX` strings
+- [x] Fix 2 (CartContext): `loadCart()` filters out stale entries missing a valid string `id` (protects legacy carts)
+- [x] Added `RequestValidationError` handler in backend that logs the failing body+errors for future debugging
+- [x] Verified end-to-end via Playwright: checkout redirected to Stripe with 200 OK
 
 ### Phase 16 - Kitchen Display System
 - [x] Full-screen dark KDS board at `/kds` (hides store-closed overlay) with 5s polling

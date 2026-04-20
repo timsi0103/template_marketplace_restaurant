@@ -5,6 +5,8 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -1724,6 +1726,19 @@ if "preview.emergentagent.com" in frontend_url:
     base = frontend_url.replace("https://", "").replace("http://", "")
     cors_origins.append(f"https://{base.split('.')[0]}.internal.preview.emergentagent.com")
 app.add_middleware(CORSMiddleware, allow_origins=cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+@app.exception_handler(RequestValidationError)
+async def _log_validation_error(request: Request, exc: RequestValidationError):
+    try:
+        body = await request.body()
+        body_preview = body.decode("utf-8", errors="replace")[:2000]
+    except Exception:
+        body_preview = "<unreadable>"
+    logging.getLogger(__name__).error(
+        "422 Validation on %s %s — errors=%s body=%s",
+        request.method, request.url.path, exc.errors(), body_preview,
+    )
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 app.include_router(api_router)
 

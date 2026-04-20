@@ -8,7 +8,16 @@ const MIN_ORDER_AMOUNT = 15;
 function loadCart() {
   try {
     const raw = localStorage.getItem(CART_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    // Drop stale entries that lack a valid string product id (e.g. legacy
+    // hardcoded homepage items with numeric ids) — backend rejects them.
+    const valid = Array.isArray(parsed)
+      ? parsed.filter((i) => i && typeof i.id === "string" && i.id.length > 0)
+      : [];
+    if (valid.length !== (parsed?.length || 0)) {
+      localStorage.setItem(CART_KEY, JSON.stringify(valid));
+    }
+    return valid;
   } catch {
     return [];
   }

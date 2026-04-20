@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Plus, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
@@ -32,48 +33,37 @@ const collections = [
   },
 ];
 
-const cravingItems = [
-  {
-    id: 1,
-    name: "Black Truffle Tagliatelle",
-    vendor: "Osteria Bianca",
-    price: 34,
-    priceLabel: "$34",
-    image: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=300&h=300&fit=crop",
-    liked: true,
-  },
-  {
-    id: 2,
-    name: "Matcha Mille Crepe",
-    vendor: "Lumiere Patisserie",
-    price: 14,
-    priceLabel: "$14",
-    image: "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=300&h=300&fit=crop",
-    liked: false,
-  },
-  {
-    id: 3,
-    name: "Reserve Cold Brew",
-    vendor: "Kin Coffee Co.",
-    price: 22,
-    priceLabel: "$22",
-    image: "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=300&fit=crop",
-    liked: false,
-  },
-  {
-    id: 4,
-    name: "The Umami Smash",
-    vendor: "Salt & Sear",
-    price: 18,
-    priceLabel: "$18",
-    image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=300&fit=crop",
-    liked: false,
-    tag: "POPULAR",
-  },
-];
+const cravingFallback = [];
 
 export default function HomePage() {
   const { addItem } = useCart();
+  const [cravingItems, setCravingItems] = useState(cravingFallback);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/menu/items")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const all = Array.isArray(data) ? data : data?.items || [];
+        const featured = all
+          .filter((i) => i && typeof i.id === "string" && i.available !== false)
+          .slice(0, 4)
+          .map((i, idx) => ({
+            id: i.id,
+            name: i.name,
+            vendor: i.category ? i.category.charAt(0).toUpperCase() + i.category.slice(1) : "",
+            price: i.price,
+            priceLabel: `$${Number(i.price).toFixed(0)}`,
+            image: i.image,
+            liked: idx === 0,
+            tag: Array.isArray(i.tags) && i.tags.length ? i.tags[0] : "",
+          }));
+        setCravingItems(featured);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const handleAdd = (e, item) => {
     e.preventDefault();
