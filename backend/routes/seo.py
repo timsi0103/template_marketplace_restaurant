@@ -370,6 +370,13 @@ async def public_page_seo(page_key: str, request: Request, product_id: Optional[
     meta = _resolve_meta(page, global_seo, storefront)
     structured = await _build_structured_data(page_key, base_url, global_seo, storefront, context)
     path = PAGE_PATHS.get(page_key, "/")
+    # Substitute templated path segments when we have concrete ids
+    if page_key == "product" and product_id:
+        path = f"/product/{product_id}"
+    elif page_key == "category" and category_slug:
+        path = f"/menu/{category_slug}"
+    elif page_key == "order_tracking":
+        path = "/orders/track"  # strip placeholder; no id context
     canonical = meta.get("canonical_url") or f"{base_url}{path}"
     return {
         "page_key": page_key,

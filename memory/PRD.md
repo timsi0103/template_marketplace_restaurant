@@ -36,7 +36,20 @@
 28. Store Profile & Branding Configuration (Feb 2026)
 29. Operating Hours & Holiday Management (Feb 2026)
 30. Tax & Service Charge Configuration (Feb 2026)
-31. Daily Summary & End-of-Day Report (Feb 2026 — current)
+31. Daily Summary & End-of-Day Report (Feb 2026)
+32. SEO Optimization & Structured Data (Feb 2026 — current)
+
+### Phase 32 - SEO Optimization & Structured Data (Feb 2026)
+- [x] Backend `routes/seo.py` (new): global SEO settings (`GET/PATCH /api/admin/seo/settings`), per-page SEO CRUD (`GET/PATCH /api/admin/seo/pages/{page_key}`), public per-page meta + JSON-LD (`GET /api/seo/page/{key}` with `product_id` / `category_slug` enrichment and templated-path substitution for canonical URLs).
+- [x] URL Redirects CRUD (`/api/admin/seo/redirects`) with 301/302 support, duplicate `from_path` rejection (409), self-reference rejection (400), and public lookup `GET /api/seo/redirect-check?path=` that increments `hits` + `last_hit_at`.
+- [x] Dynamic `GET /api/seo/sitemap.xml` — static indexed pages + auto-included categories + menu items with configurable changefreq/priority. Per-page `noindex` respected.
+- [x] `GET /api/seo/robots.txt` — admin-editable disallow paths, crawl-delay, extra lines; appends Sitemap URL.
+- [x] Structured Data builder renders Organization, Restaurant, LocalBusiness, WebSite (with SearchAction), Menu (with MenuSection + MenuItem per category), MenuItem (context-enriched for product pages), and BreadcrumbList (home/menu/item path).
+- [x] SEO Health audit `GET /api/admin/seo/health`: score 0-100, summary pass/warn/fail, checks across global config, per-page title length (20–65), description length (70–170), OG image, duplicate titles/descriptions, noindex on public pages, redirect chains/loops, sitemap configuration.
+- [x] Admin `/admin/seo` (sidebar "SEO", Search icon) with 6 tabs: **Per-Page** (page list + editor with char counters + live Google SERP preview + Facebook/Twitter OG card preview), **Structured Data** (schema type toggle grid + live JSON-LD preview + Copy JSON + Google Rich Results test link), **Global** (site URL, title suffix, defaults, verification tags, organization, sitemap), **Redirects** (from→to table + create/delete + 301/302 select + hit counter), **Sitemap & Robots** (regenerate + URL table + robots preview + download), **Health** (score badge + grouped pass/warn/fail checks + re-run).
+- [x] Public frontend injection via new `useSeo(pageKey, params?)` hook in `/app/frontend/src/hooks/useSeo.js`: sets `document.title`, meta description/keywords/robots, og:title/description/image/url/type, twitter:card/title/description/image, verification tags, canonical link, and appends `<script type=application/ld+json>` blocks. Hook wired into HomePage, MenuPage, ProductDetailPage, CategoryLandingPage.
+- [x] Tested: 19/19 backend pytest pass (`test_seo.py`). Full scripted admin UI + public meta injection validated by testing agent. Bug found & fixed: canonical URLs for product/category pages leaked literal `{id}`/`{slug}` templates — now substituted with real ids + guarded by regression test.
+- [x] Known design: sitemap.xml & robots.txt are served under `/api/seo/*` because the Kubernetes ingress routes non-`/api` traffic to the frontend; the admin UI clearly surfaces the absolute public URLs.
 
 ### Phase 31 - Daily Summary & End-of-Day Report (Feb 2026)
 - [x] Backend `routes/daily_summary.py` (new): `GET /api/admin/daily-summary?date=` (live compute), `POST /generate` (archives a snapshot + optional MOCKED email), `GET /history` with `date_from`/`date_to` filter, `GET/DELETE /{sid}`, delivery-settings (`/delivery-settings`) GET/PATCH with {enabled, recipients, send_at HH:MM, format pdf|html|csv}. Router ordering fixed so `/delivery-settings` isn't captured by `/{sid}`.

@@ -151,6 +151,23 @@ def test_public_product_page_enriches_from_menu_item():
     assert d["meta"]["title"]  # enriched from product name
     types = [b.get("@type") for b in d.get("structured_data", [])]
     assert "BreadcrumbList" in types
+    # Canonical URL must contain the real product id — not the {id} template
+    assert pid in d["canonical_url"], f"canonical should contain product id, got {d['canonical_url']}"
+    assert "{id}" not in d["canonical_url"]
+    assert "{" not in d["canonical_url"]
+
+
+def test_public_category_canonical_uses_slug():
+    cats = requests.get(f"{BASE_URL}/api/categories").json()
+    cat_list = cats.get("categories") if isinstance(cats, dict) else cats
+    if not cat_list:
+        pytest.skip("No categories seeded")
+    slug = cat_list[0].get("slug") or cat_list[0].get("id")
+    r = requests.get(f"{BASE_URL}/api/seo/page/category?category_slug={slug}")
+    assert r.status_code == 200
+    d = r.json()
+    assert slug in d["canonical_url"]
+    assert "{slug}" not in d["canonical_url"]
 
 
 # ─── Redirects ──────────────────────────────────────────────────
