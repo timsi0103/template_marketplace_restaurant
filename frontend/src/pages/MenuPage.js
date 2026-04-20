@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Search as SearchIcon, X, SlidersHorizontal, Eye, LayoutGrid, List, ArrowUpDown, Star } from "lucide-react";
 import axios from "axios";
@@ -156,13 +156,6 @@ export default function MenuPage() {
     setInStockOnly(false);
   };
 
-  const scrollToCategory = useCallback((slug) => {
-    const el = sectionRefs.current[slug];
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 160;
-    window.scrollTo({ top, behavior: "smooth" });
-  }, []);
-
   const handleAdd = (e, item) => {
     e.preventDefault(); e.stopPropagation();
     if (item.status === "sold_out") return;
@@ -274,15 +267,15 @@ export default function MenuPage() {
           <div data-testid="sticky-category-bar" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-3">
             <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
               {visibleCategories.map((c) => (
-                <button
+                <Link
                   key={c.id}
+                  to={`/menu/${c.slug}`}
                   data-testid={`category-pill-${c.slug}`}
-                  onClick={() => scrollToCategory(c.slug)}
-                  className="px-3.5 py-1.5 rounded-full border border-brand-border bg-brand-surface whitespace-nowrap text-xs font-body font-medium text-brand-text hover:bg-brand-primary hover:text-white hover:border-brand-primary transition active:scale-95"
+                  className="px-3.5 py-1.5 rounded-full border border-brand-border bg-brand-surface whitespace-nowrap text-xs font-body font-medium text-brand-text hover:bg-brand-primary hover:text-white hover:border-brand-primary transition active:scale-95 inline-flex items-center"
                 >
                   {c.name}
                   <span className="ml-1.5 text-[10px] opacity-60">{grouped.get(c.slug)?.length || 0}</span>
-                </button>
+                </Link>
               ))}
             </div>
           </div>
@@ -359,9 +352,20 @@ export default function MenuPage() {
                   className="scroll-mt-36"
                 >
                   <div className="flex items-end justify-between mb-4">
-                    <h2 className="font-heading text-2xl sm:text-3xl font-bold text-brand-text capitalize">
-                      {cat?.name || slug}
-                    </h2>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <h2 className="font-heading text-2xl sm:text-3xl font-bold text-brand-text capitalize">
+                        {cat?.name || slug}
+                      </h2>
+                      {cat?.slug && (
+                        <Link
+                          to={`/menu/${cat.slug}`}
+                          data-testid={`section-view-all-${cat.slug}`}
+                          className="inline-flex items-center gap-1 text-xs font-body font-semibold text-brand-primary hover:underline"
+                        >
+                          View full collection →
+                        </Link>
+                      )}
+                    </div>
                     <span className="text-xs text-brand-text-secondary">{sectionItems.length} {sectionItems.length === 1 ? "dish" : "dishes"}</span>
                   </div>
                   <div className={viewMode === "grid"
