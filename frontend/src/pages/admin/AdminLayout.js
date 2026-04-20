@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban, Palette } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const sidebarLinks = [
@@ -15,6 +15,7 @@ const sidebarLinks = [
   { label: "Live Queue", path: "/admin/queue", icon: Zap },
   { label: "Prep & Throttle", path: "/admin/throttle", icon: Gauge },
   { label: "86 / Sold-Out", path: "/admin/86", icon: Ban },
+  { label: "Storefront", path: "/admin/storefront", icon: Palette },
   { label: "Orders", path: "/admin/orders", icon: ClipboardList },
   { label: "Printers", path: "/admin/printers", icon: Printer },
   { label: "Print Settings", path: "/admin/print-settings", icon: Settings },
