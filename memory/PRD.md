@@ -28,7 +28,17 @@
 20. Backend Refactor + Search + Analytics (Feb 2026)
 21. Real-Time Order Queue + Audio Alerts (Feb 2026)
 22. Prep Time Estimation & Order Throttling (Feb 2026)
-23. Quick 86 / Sold-Out Toggle (Feb 2026 — current)
+23. Quick 86 / Sold-Out Toggle (Feb 2026)
+24. Branded Storefront & Admin Customization (Feb 2026 — current)
+
+### Phase 24 - Branded Storefront & Customization Panel (Feb 2026)
+- [x] Backend `/app/backend/routes/storefront.py`: GET `/api/storefront/settings` (public), GET/PATCH `/api/admin/storefront/settings` (admin, deep-merge), GET `/api/storefront/social-proof` (orders_today count + seeded reviews + avg rating).
+- [x] Public HomePage now fully dynamic: hero eyebrow/title/subtitle/CTA/image from settings; AboutSection, FeaturedCategories, SocialProofSection, BrandFooter appended.
+- [x] SEO live: title, meta description, og:title/description/image, favicon — all driven by settings via `applyStorefrontMeta`.
+- [x] Live brand theming (Option B): Tailwind `brand.primary/primary-hover/orange/orange-hover/accent` now read CSS vars; `useStorefront` injects `--brand-primary`, `--brand-orange`, `--brand-accent` on `document.documentElement` on load + on save. `shade()` auto-generates the hover variant. useStorefront mounted at AppRouter level → vars active on every page.
+- [x] Admin `/admin/storefront` page: Brand identity (name/tagline/logo/favicon), Brand colors (color-picker + hex, live preview row), Hero (eyebrow/title/subtitle/CTA/image), About (heading/body/mission/sourcing/image), Contact & social (email/phone/address + Instagram/Twitter/Facebook/TikTok), SEO (title/description/og image). Dirty-state detection, Discard, Preview-site, Save & publish (disabled when clean).
+- [x] Sidebar entry "Storefront" (Palette icon).
+- [x] Tested: 11/11 backend pytest pass (new `/app/backend/tests/test_storefront.py`), 100% scripted frontend flows pass — auth guards, deep-merge partial patch, public reflection, live CSS var propagation, SEO title, discard, restore to defaults. 0 bugs.
 
 ### Phase 23 - Quick 86 / Sold-Out Toggle (Feb 2026)
 - [x] Backend: POST `/api/admin/86/items/{id}/toggle` (flip or explicit status), POST `/api/admin/86/batch` (by item_ids OR category), GET `/api/admin/86/log` (history), GET/PATCH `/api/admin/86/settings` (auto_restore_on_open). Every state change logged with actor + source.
@@ -191,6 +201,6 @@
 - Admin: admin@culinaryeditorial.com / Admin123!
 
 ## Backlog
-### P0: Wire Order Tracking page to GET /api/orders/:id (show live status, prep progress)
-### P1: Kitchen display queue (consume /api/kitchen/orders), admin orders table, Analytics
-### P2: Loyalty, subscriptions, search, real webhook signing
+### P1: Subscriptions (meal plan, weekly/monthly recurrence, billing hooks)
+### P1: Loyalty program (points, tiers, redeemable rewards) — user previously deferred; revisit
+### P2: Real webhook signing (Stripe), multi-location support, SMS notifications
