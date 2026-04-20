@@ -79,7 +79,7 @@ function AppRouter() {
       <StoreStatusBanner />
       <Navbar />
       <ClosedOverlay />
-      <div className="pb-16 md:pb-0">
+      <div className="pb-16 lg:pb-0">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/menu" element={<MenuPage />} />

@@ -111,7 +111,7 @@ export default function AdminCatalog() {
       ) : (
         <div data-testid="catalog-table" className="bg-brand-surface border border-brand-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <div className="overflow-x-auto -mx-6 px-6"><table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-brand-border bg-brand-bg/50">
                   <th className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-widest text-brand-text-secondary">Item</th>
@@ -168,7 +168,7 @@ export default function AdminCatalog() {
                   <tr><td colSpan={6} className="px-4 py-12 text-center font-body text-sm text-brand-text-secondary">No items found</td></tr>
                 )}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       )}

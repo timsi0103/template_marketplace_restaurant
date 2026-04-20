@@ -291,7 +291,7 @@ function WeeklyGrid({ hours, onCell, onCopyDayRow, onApplyAll }) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto -mx-6 px-6"><table className="w-full text-sm min-w-[640px]">
           <thead className="bg-brand-bg/60">
             <tr>
               <th className="p-3 text-left text-[10px] uppercase tracking-widest text-brand-text-secondary font-semibold w-24">Day</th>
@@ -342,7 +342,7 @@ function WeeklyGrid({ hours, onCell, onCopyDayRow, onApplyAll }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </section>
   );

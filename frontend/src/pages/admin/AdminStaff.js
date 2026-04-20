@@ -67,7 +67,7 @@ export default function AdminStaff() {
             <p className="font-body text-sm text-brand-text-secondary">No staff yet. Invite your first team member to get started.</p>
           </div>
         ) : (
-          <table className="w-full text-sm font-body">
+          <div className="overflow-x-auto -mx-6 px-6"><table className="w-full text-sm font-body min-w-[640px]">
             <thead className="bg-brand-bg">
               <tr>
                 <th className="p-3 text-left text-[11px] uppercase tracking-wider text-brand-text-secondary font-semibold">Name</th>
@@ -81,7 +81,7 @@ export default function AdminStaff() {
             <tbody>
               {data.staff.map((u) => <StaffRow key={u.user_id} user={u} roles={roles} onChange={load} />)}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
 

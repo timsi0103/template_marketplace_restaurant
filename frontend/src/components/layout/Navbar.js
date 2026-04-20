@@ -52,20 +52,20 @@ export default function Navbar() {
       data-testid="main-navbar"
       className="sticky top-0 z-50 bg-brand-bg/95 backdrop-blur-sm border-b border-brand-border"
     >
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between gap-3 h-16">
           {/* Logo */}
           <Link
             to="/"
             data-testid="navbar-logo"
-            className="font-heading text-brand-primary text-xl sm:text-2xl font-semibold tracking-tight"
+            className="font-heading text-brand-primary text-lg sm:text-xl lg:text-2xl font-semibold tracking-tight whitespace-nowrap truncate flex-shrink min-w-0"
           >
             The Culinary Editorial
           </Link>
 
           {/* Store Status */}
           {storeStatus && (
-            <div data-testid="store-status-indicator" className="hidden md:flex items-center gap-1.5">
+            <div data-testid="store-status-indicator" className="hidden lg:flex items-center gap-1.5 flex-shrink-0">
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${storeStatus.is_open ? "bg-green-500" : "bg-red-500"} ${storeStatus.is_open ? "" : "animate-pulse"}`} />
               <span className={`font-body text-xs font-medium ${storeStatus.is_open ? "text-green-600" : "text-red-500"}`}>
                 {storeStatus.is_open ? "Open Now" : "Closed"}
@@ -83,7 +83,7 @@ export default function Navbar() {
           {/* Nav Links */}
           <nav
             data-testid="navbar-links"
-            className="hidden md:flex items-center gap-8"
+            className="hidden lg:flex items-center gap-6 xl:gap-8 flex-shrink-0"
           >
             {navLinks.map((link) => (
               <Link
@@ -102,8 +102,8 @@ export default function Navbar() {
           </nav>
 
           {/* Right side: Search + Cart + User */}
-          <div className="flex items-center gap-4">
-            <SearchBar className="hidden md:block w-56 lg:w-64" />
+          <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+            <SearchBar className="hidden lg:block w-56 xl:w-64" />
             <button
               onClick={() => setDrawerOpen(true)}
               data-testid="navbar-cart-btn"

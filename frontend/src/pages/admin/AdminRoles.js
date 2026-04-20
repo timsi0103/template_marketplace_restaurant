@@ -138,7 +138,7 @@ function RoleCard({ role, featureAreas, actions, onEdit, onDeleted }) {
 function PermissionMatrix({ data, onEditCustom }) {
   return (
     <div data-testid="permission-matrix" className="bg-brand-surface border border-brand-border rounded-2xl overflow-auto">
-      <table className="w-full text-sm font-body">
+      <div className="overflow-x-auto -mx-6 px-6"><table className="w-full text-sm font-body min-w-[640px]">
         <thead className="bg-brand-bg sticky top-0">
           <tr>
             <th className="p-3 text-left text-[11px] uppercase tracking-wider text-brand-text-secondary font-semibold sticky left-0 bg-brand-bg">Role</th>
@@ -180,7 +180,7 @@ function PermissionMatrix({ data, onEditCustom }) {
             </tr>
           ))}
         </tbody>
-      </table>
+      </table></div>
     </div>
   );
 }

@@ -103,7 +103,7 @@ export default function AdminVariants() {
                 {isExpanded && (
                   <div className="border-t border-brand-border">
                     {variants.length > 0 && (
-                      <table className="w-full">
+                      <div className="overflow-x-auto -mx-6 px-6"><table className="w-full min-w-[640px]">
                         <thead>
                           <tr className="bg-brand-bg/50">
                             <th className="text-left px-4 py-2 font-body text-[9px] uppercase tracking-widest text-brand-text-secondary">Variant</th>
@@ -138,7 +138,7 @@ export default function AdminVariants() {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                      </table></div>
                     )}
                     {/* Add/Edit variant form */}
                     <div data-testid={`variant-form-${item.id}`} className="px-4 py-3 bg-brand-bg/30 border-t border-brand-border">

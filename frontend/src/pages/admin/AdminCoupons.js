@@ -87,7 +87,7 @@ export default function AdminCoupons() {
       ) : (
         <div data-testid="coupons-table" className="bg-brand-surface border border-brand-border rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <div className="overflow-x-auto -mx-6 px-6"><table className="w-full min-w-[640px]">
               <thead className="bg-brand-bg text-left">
                 <tr>
                   <Th>Code</Th>
@@ -175,7 +175,7 @@ export default function AdminCoupons() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           </div>
         </div>
       )}

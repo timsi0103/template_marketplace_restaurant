@@ -171,7 +171,7 @@ export default function AdminCancellations() {
         {totalCount === 0 ? (
           <div data-testid="cancellations-list-empty" className="p-10 text-center text-sm font-body text-brand-text-secondary italic">No cancellations yet.</div>
         ) : (
-          <table className="w-full text-sm font-body">
+          <div className="overflow-x-auto -mx-6 px-6"><table className="w-full text-sm font-body min-w-[640px]">
             <thead className="bg-brand-bg text-left">
               <tr>
                 <th className="p-3 text-[11px] uppercase tracking-wider text-brand-text-secondary font-semibold">Order</th>
@@ -206,7 +206,7 @@ export default function AdminCancellations() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </section>
     </div>
