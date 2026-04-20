@@ -40,7 +40,32 @@
 32. SEO Optimization & Structured Data (Feb 2026)
 33. Full E2E Regression Sweep (Feb 2026)
 34. Order Modification & Cancellation (Feb 2026)
-35. Staff Accounts & Role-Based Access (Feb 2026 — current)
+35. Staff Accounts & Role-Based Access (Feb 2026)
+36. Customer Ratings & Reviews (Feb 2026 — current)
+
+### Phase 36 - Customer Ratings & Reviews (Feb 2026)
+- [x] Backend `routes/reviews.py` (new): full reviews domain — config, submission, display, moderation, insights, photo uploads.
+- [x] Config in `app_settings` (key=`review_config`): `enabled`, `auto_send_delay_minutes` (default 60), `message_template`, `enabled_fulfillment_types`, `auto_approve`, `allow_photos`, `allow_anonymous`. Admin endpoints `GET/PATCH /api/admin/review-config`.
+- [x] Eligibility trigger computed on-the-fly (no cron): order must be status `delivered`/`completed`, fulfillment enabled, AND `delivered_at + delay_minutes <= now`. Public `GET /api/reviews/request/{order_id}` returns `{eligible, submitted, seconds_until_prompt, items, message_template}`.
+- [x] Submission: `POST /api/reviews` with overall rating (1–5), optional text, optional per-item ratings/text, photo file_ids, anonymous flag. Verifies order ownership (logged-in) or contact_email match (guest). 409 on duplicate. Denormalizes `rating_avg`/`rating_count`/`rating_distribution` onto menu_items doc via `_recompute_item_summary`.
+- [x] Photo upload: `POST /api/reviews/photos/upload` reuses new shared `store_user_upload` helper in `routes/uploads.py`; 3 MB cap; fulfilled-order + auth-or-email-verification required.
+- [x] Public display: `GET /api/menu/items/{id}/reviews/summary`, `GET /api/menu/items/{id}/reviews?rating=&sort=recent|helpful|highest|lowest&limit=`, `GET /api/reviews/summary-bulk?item_ids=`, `POST /api/reviews/{id}/helpful` (idempotent per-session via client set).
+- [x] Admin moderation: `GET /api/admin/reviews?status=all|pending|approved|flagged|rejected|attention&rating=` with counts; `POST /approve|flag|respond`; `DELETE /response`; `DELETE /{id}`. Attention queue = 1★/2★ approved without admin response.
+- [x] Admin aggregate sentiment: `GET /api/admin/reviews/aggregate?days=N` returns total/avg/distribution/trend/response_rate/attention_count; `GET /api/admin/reviews/attention` dedicated list.
+- [x] Seeded 9 demo reviews across 5 items (one with admin response) + denormalized aggregates.
+- [x] Frontend:
+  - `StarRating.js` — interactive + readonly star widget
+  - `ReviewList.js` — summary card (avg + distribution bars + clickable star filter) + sorted/filtered list with verified badge, photos, admin response, helpful counter (optimistic update)
+  - `ReviewPrompt.js` — dual-mode banner (full + `compact`) shown on OrderTrackingPage + CustomerOrdersPage rows. Shows "Submitted!" state when done.
+  - `ReviewSubmissionPage.js` at `/review/:order_id` — overall star input, per-item scoped ratings (expand text on tap), photo upload with 5-photo limit + preview/remove, anonymous toggle, guest email verification, submit
+  - `ProductDetailPage.js` — rating pill near title + `<ReviewList>` at bottom
+  - `MenuPage.js` — ItemCard renders rating pill (star + avg + count) for items with reviews
+  - `admin/AdminReviews.js` — tabs: Moderation (filter chips + respond dialog + approve/flag/delete), Insights (KPIs + distribution + SVG trend), Settings (toggles + delay + template + fulfillment chips + save)
+  - Admin sidebar "Reviews" link (Star icon), route `/admin/reviews`, public route `/review/:order_id`
+- [x] Backend tests: `tests/test_reviews.py` — 14/14 passed (1 skipped by design).
+- [x] Testing agent E2E: 100% pass, no bugs found.
+
+---
 
 ### Phase 35 - Staff Accounts & Role-Based Access (Feb 2026)
 - [x] Backend `routes/staff.py` (new): 6 pre-defined roles auto-seeded (Owner/Manager/Kitchen/Delivery/Front-of-House/Cashier) with granular permissions across 8 feature areas × 3 actions (view/edit/approve).
