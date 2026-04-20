@@ -1,7 +1,8 @@
 """Admin-side order workflow + dashboard + kitchen queue + coupons CRUD."""
 from fastapi import HTTPException, Request
+from pydantic import BaseModel
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 import uuid
 
 from core import api_router, db, require_admin
@@ -216,6 +217,91 @@ async def admin_queue(request: Request):
     await require_admin(request)
     orders = await db.orders.find({"status": {"$in": ["pending", "preparing", "ready"]}}, {"_id": 0}).to_list(50)
     return {"queue": orders}
+
+
+# ─── Live Queue + Batch Accept ───────────────────────────
+
+@api_router.get("/admin/queue/live")
+async def admin_live_queue(request: Request):
+    await require_admin(request)
+    now = datetime.now(timezone.utc)
+    # Today's window (UTC)
+    start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    active_statuses = ["pending", "preparing", "ready", "out_for_delivery"]
+    orders = await db.orders.find(
+        {"payment_status": "paid", "status": {"$in": active_statuses}},
+        {"_id": 0},
+    ).sort("created_at", 1).to_list(200)
+    # Also include completed orders from today so the Completed lane has something to show
+    completed_today = await db.orders.find(
+        {"payment_status": "paid", "status": {"$in": ["completed", "delivered"]},
+         "updated_at": {"$gte": start_of_day}},
+        {"_id": 0},
+    ).sort("updated_at", -1).limit(30).to_list(30)
+
+    # Summary (today)
+    todays_paid = await db.orders.find(
+        {"payment_status": "paid", "created_at": {"$gte": start_of_day}},
+        {"_id": 0, "total": 1, "status": 1, "accepted_at": 1, "created_at": 1, "updated_at": 1},
+    ).to_list(1000)
+    revenue_today = round(sum(float(o.get("total") or 0) for o in todays_paid), 2)
+    orders_today = len(todays_paid)
+    pending_count = sum(1 for o in orders if o.get("status") == "pending")
+    in_progress_count = sum(1 for o in orders if o.get("status") in ("preparing", "ready", "out_for_delivery"))
+
+    # Avg prep time (accepted_at → status==ready's updated_at when that transition happened)
+    prep_samples = []
+    for o in todays_paid:
+        if o.get("status") in ("ready", "out_for_delivery", "completed", "delivered"):
+            accepted = o.get("accepted_at")
+            updated = o.get("updated_at")
+            if accepted and updated:
+                try:
+                    a = datetime.fromisoformat(accepted.replace("Z", "+00:00"))
+                    u = datetime.fromisoformat(updated.replace("Z", "+00:00"))
+                    delta = (u - a).total_seconds() / 60.0
+                    if 0 < delta < 300:
+                        prep_samples.append(delta)
+                except Exception:
+                    pass
+    avg_prep_minutes = round(sum(prep_samples) / len(prep_samples), 1) if prep_samples else 0.0
+
+    return {
+        "orders": orders + completed_today,
+        "summary": {
+            "orders_today": orders_today,
+            "revenue_today": revenue_today,
+            "pending_count": pending_count,
+            "in_progress_count": in_progress_count,
+            "avg_prep_minutes": avg_prep_minutes,
+        },
+        "server_time": now.isoformat(),
+    }
+
+
+class BatchAcceptBody(BaseModel):
+    order_ids: List[str]
+
+
+@api_router.post("/admin/orders-batch/accept")
+async def admin_batch_accept(body: BatchAcceptBody, request: Request):
+    from routes.printers import _auto_queue_for_order
+    await require_admin(request)
+    if not body.order_ids:
+        raise HTTPException(status_code=400, detail="No orders selected")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    result = {"accepted": [], "skipped": []}
+    for oid in body.order_ids:
+        res = await db.orders.update_one(
+            {"id": oid, "status": "pending"},
+            {"$set": {"status": "preparing", "accepted_at": now_iso, "updated_at": now_iso}},
+        )
+        if res.matched_count and res.modified_count:
+            result["accepted"].append(oid)
+            await _auto_queue_for_order(oid, "acceptance")
+        else:
+            result["skipped"].append(oid)
+    return result
 
 
 @api_router.get("/kitchen/orders")

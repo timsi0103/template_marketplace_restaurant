@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plus, Pencil, BarChart3, ClipboardList, ArrowRight, Clock, Check, MoreHorizontal, Filter } from "lucide-react";
+import { Plus, Pencil, BarChart3, ClipboardList, ArrowRight, Clock, Check, MoreHorizontal, Filter, Zap } from "lucide-react";
 import AdminNewOrdersPanel from "@/components/admin/AdminNewOrdersPanel";
 
 const queueItems = [
@@ -30,6 +30,24 @@ export default function AdminOverview() {
           <BarChart3 size={16} /> View Analytics
         </button>
       </div>
+
+      {/* Live Queue CTA */}
+      <Link
+        to="/admin/queue"
+        data-testid="live-queue-cta"
+        className="block mb-6 p-5 bg-gradient-to-r from-brand-primary to-red-700 text-white rounded-xl hover:shadow-lg transition-shadow group"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center"><Zap size={18} /></div>
+            <div>
+              <div className="font-heading text-base font-bold">Open Live Queue</div>
+              <div className="font-body text-xs opacity-90">Accept, prepare, and move orders in real time with audio alerts.</div>
+            </div>
+          </div>
+          <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+        </div>
+      </Link>
 
       {/* Incoming orders — real-time */}
       <div className="mb-8">
