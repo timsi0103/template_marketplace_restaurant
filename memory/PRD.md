@@ -39,7 +39,24 @@
 31. Daily Summary & End-of-Day Report (Feb 2026)
 32. SEO Optimization & Structured Data (Feb 2026)
 33. Full E2E Regression Sweep (Feb 2026)
-34. Order Modification & Cancellation (Feb 2026 — current)
+34. Order Modification & Cancellation (Feb 2026)
+35. Staff Accounts & Role-Based Access (Feb 2026 — current)
+
+### Phase 35 - Staff Accounts & Role-Based Access (Feb 2026)
+- [x] Backend `routes/staff.py` (new): 6 pre-defined roles auto-seeded (Owner/Manager/Kitchen/Delivery/Front-of-House/Cashier) with granular permissions across 8 feature areas × 3 actions (view/edit/approve).
+- [x] Role CRUD: `GET/POST/PATCH/DELETE /api/admin/roles` + in-use guard (409) + pre-defined edit/delete blocked (403). Custom roles use `pre_defined:false` and sort_order=100.
+- [x] Staff CRUD: `GET /api/admin/staff` (with pending invites), `GET/PATCH /api/admin/staff/{user_id}`, `POST /api/admin/staff/{user_id}/deactivate|reactivate`. Self-deactivate blocked (400).
+- [x] Invitation lifecycle (**MOCKED email**): `POST /api/admin/staff/invite` returns `{mocked_email:true, accept_url}` + 7-day expiry; `POST /api/admin/staff/invites/{id}/revoke`; public `GET /api/invitations/{token}` (pending/accepted/revoked/expired/notfound) + `POST /api/invitations/{token}/accept` creates user + login-ready password hash.
+- [x] Activity aggregator `GET /api/admin/staff/{user_id}/activity` pulls from `order_audit` + `print_jobs` + `staff_activity` collections. Global `GET /api/admin/staff-activity` for dashboard use.
+- [x] Frontend: 
+  - `/admin/staff` — staff list (name, email, role badge, last-active, status), pending-invite amber rows with Copy-link + Revoke, Invite dialog with role selector + MOCKED-email badge + success state with shareable link.
+  - `/admin/staff/{user_id}` — profile page with avatar, role badge, contact info, activity summary, 8-area permission overview (view/edit/approve chips per area), paginated activity log.
+  - `/admin/roles` — two tabs: **Role cards** (6 pre-defined + custom) with permission chips, staff counts, Read-only tag on pre-defined; **Permission matrix** sticky-header grid (roles × areas × actions); New/Edit custom role dialog with per-area switch + per-action pill toggles.
+  - `/accept-invite/{token}` — public page with pending/accepted/revoked/expired/notfound states; pending renders email-locked form (name, password, confirm) and auto-signs-in + redirects to /admin on success.
+- [x] Sidebar: two new entries "Staff" (UserCog) + "Roles" (Shield) — now 27 total admin links.
+- [x] Enforcement scope: permissions are **UI-level advisory** in this phase (admin endpoints continue using `require_admin`). Full backend per-permission guards parked as P2 backlog (~60 endpoints).
+- [x] Clipboard hardening: both Copy-link calls wrapped in try/catch with graceful toast fallback for insecure contexts.
+- [x] Tested: 24/25 pytest pass (1 expected skip — seeded admin lacks `is_staff:True`). Testing agent validated 100% of frontend flows with zero bugs.
 
 ### Phase 34 - Order Modification & Cancellation (Feb 2026)
 - [x] Backend `routes/order_modification.py` (new):

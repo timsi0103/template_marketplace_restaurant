@@ -98,8 +98,12 @@ export default function AdminStaff() {
 
 function InviteRow({ invite, onChange }) {
   const copyLink = () => {
-    navigator.clipboard.writeText(invite.accept_url);
-    toast.success("Invite link copied");
+    try {
+      navigator.clipboard.writeText(invite.accept_url);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Couldn't copy — select the link manually");
+    }
   };
   const revoke = async () => {
     if (!window.confirm("Revoke this invite? The link will stop working.")) return;
@@ -217,7 +221,14 @@ function InviteDialog({ open, onClose, roles, onInvited }) {
     } finally { setSending(false); }
   };
 
-  const copy = () => { navigator.clipboard.writeText(sent.accept_url); toast.success("Invite link copied"); };
+  const copy = () => {
+    try {
+      navigator.clipboard.writeText(sent.accept_url);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Couldn't copy — select the link manually");
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
