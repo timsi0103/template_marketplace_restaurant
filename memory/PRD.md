@@ -34,7 +34,17 @@
 26. Guest Checkout + Post-Purchase Account Creation (Feb 2026)
 27. Sales Dashboard & Reports (Feb 2026)
 28. Store Profile & Branding Configuration (Feb 2026)
-29. Operating Hours & Holiday Management (Feb 2026 — current)
+29. Operating Hours & Holiday Management (Feb 2026)
+30. Tax & Service Charge Configuration (Feb 2026 — current)
+
+### Phase 30 - Tax & Service Charge Configuration (Feb 2026)
+- [x] Backend `routes/fees.py` (new): multi-jurisdiction **Region CRUD** (`/admin/fees/regions`) with default region auto-seeded; each region owns tax (name/rate/inclusive + category + item overrides), service_charge, packaging_fee, eco_fee, delivery_rules (flat/distance/tiered with min_order).
+- [x] Public `POST /api/fees/quote` — line-by-line pricing engine with per-item tax resolution, inclusive-tax extraction, multi-rate breakdown, service/packaging/eco, tiered-by-subtotal / distance-based / flat delivery, `delivery_blocked` when below min_order; accepts unsaved `region_override` for the admin live preview.
+- [x] Public `GET /api/fees/default-region` exposes tax name + inclusive flag so storefronts can render correct receipt copy ("Sales Tax" vs "VAT" vs "GST").
+- [x] Admin CSV `GET /api/admin/fees/tax-report?start&end&region_id` with totals + per-category rows (taxable_base, effective rate, tax collected); correctly handles inclusive pricing by reporting net base.
+- [x] Admin `/admin/fees` page (sidebar "Tax & Charges", Receipt icon): region switcher with star-marked default, config editor across Region identity / Tax (with category + item override tables) / Service charge / Delivery rules (flat/distance/tiered editor) / Packaging / Eco / Tax report download. A sticky **live Checkout Preview** column on the right renders sample cart with instant tax-rate-by-rate breakdown before the admin hits Save.
+- [x] Bug fixes in second iteration: `_deep_merge` gained `replace_keys` param so PATCH `{tax:{category_overrides:{}}}` clears the dict; `copy.deepcopy(DEFAULT_REGION)` prevents cross-region mutation; live preview now sends `region_override` so the right-hand column reflects unsaved edits.
+- [x] Tested: 29/29 pytest pass (test_fees_config.py), scripted frontend flows validated (live preview updates within ~1s of edit). 0 bugs.
 
 ### Phase 29 - Operating Hours & Holiday Management (Feb 2026)
 - [x] Backend `routes/store.py` upgraded: `/store/status` now returns `pause_reason`, `pause_until`, `special_today`, `accept_advance_orders`, `max_days_ahead` alongside the existing service availability map.
