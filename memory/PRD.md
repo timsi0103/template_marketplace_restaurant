@@ -22,7 +22,23 @@
 14. Order Placement & Confirmation
 15. Order History & Reorder
 16. Kitchen Display System (KDS)
-17. Checkout Bug Fix — 422 on POST /api/orders (current)
+17. Checkout Bug Fix — 422 on POST /api/orders
+18. Admin Accept Order Bug Fix (Feb 2026)
+19. Order Ticket Printing / Thermal Printer (Feb 2026 — current)
+
+### Phase 18 - Admin Accept Order Fix (Feb 2026)
+- [x] Root cause: payment-confirm set order `status="preparing"` immediately, and `/admin/orders/new` included `preparing` in its filter. Clicking Accept re-set to `preparing` (no-op) — incoming orders reappeared on reload.
+- [x] Paid orders now enter as `status="pending"` (awaiting acceptance); `/admin/orders/new` filters `status=pending` only; KDS filters `preparing|ready`.
+
+### Phase 19 - Thermal Ticket Printing (Feb 2026)
+- [x] Backend: printers CRUD, test print, print-settings (auto_trigger: on_placement|on_acceptance|off, auto_receipt), print-jobs history, POST /admin/orders/:id/print (kitchen|receipt), public GET /orders/:id/receipt
+- [x] Auto-queue hook fires on payment confirm (on_placement) and admin accept (on_acceptance). Uses KDS station_routing to map item categories → station → online printer; falls back to online kitchen-station printers.
+- [x] Frontend: /admin/printers (list/add/edit/delete/toggle online/test print), /admin/print-settings (trigger + auto receipt + routing summary), /admin/print-jobs (history + open ticket), /admin/orders (real orders list with reprint kitchen/receipt buttons)
+- [x] Ticket components (80mm monospace): KitchenTicket.jsx, CustomerReceipt.jsx — rendered by /admin/ticket/:order_id (admin, either type) and /receipt/:order_id (public, customer). ?auto=1 auto-opens the browser print dialog.
+- [x] Print receipt buttons on OrderSuccessPage, OrderTrackingPage, CustomerOrdersPage
+- [x] Sidebar: Printers / Print Settings / Print History added to AdminLayout
+- [x] Tested: 22/22 backend pytests (/app/backend/tests/test_printers.py), all frontend data-testids verified via testing agent
+- [x] Mocked: thermal hardware is simulated via browser window.print(); status toggle is manual only (user choice)
 
 ### Phase 17 - Checkout 422 Fix (Feb 2026)
 - [x] Root cause: `HomePage.js` "Currently Craving" used hardcoded numeric ids (1–4) not present in backend catalog — backend `OrderLineIn.item_id: str` Pydantic validation rejected them → 422

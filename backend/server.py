@@ -1749,7 +1749,8 @@ async def _get_print_settings() -> dict:
         doc["updated_at"] = datetime.now(timezone.utc).isoformat()
         await db.print_settings.insert_one(doc)
         doc = await db.print_settings.find_one({"key": "print_settings"}, {"_id": 0})
-    return doc
+    # Merge defaults to cover legacy docs missing newer fields
+    return {**DEFAULT_PRINT_SETTINGS, **doc}
 
 
 def _build_ticket_payload(order: dict, ticket_type: str, printer: Optional[dict] = None) -> dict:
