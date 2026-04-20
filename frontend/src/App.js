@@ -42,6 +42,8 @@ import AdminPrinters from "@/pages/admin/AdminPrinters";
 import AdminPrintSettings from "@/pages/admin/AdminPrintSettings";
 import AdminPrintJobs from "@/pages/admin/AdminPrintJobs";
 import AdminOrders from "@/pages/admin/AdminOrders";
+import AdminAnalytics from "@/pages/admin/AdminAnalytics";
+import SearchResultsPage from "@/pages/SearchResultsPage";
 import KitchenTicketPage from "@/pages/KitchenTicketPage";
 import ReceiptPage from "@/pages/ReceiptPage";
 import KDSBoard from "@/pages/KDSBoard";
@@ -74,6 +76,7 @@ function AppRouter() {
           <Route path="/kds" element={<KDSBoard />} />
           <Route path="/kds/:station" element={<KDSBoard />} />
           <Route path="/receipt/:order_id" element={<ReceiptPage />} />
+          <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/admin/ticket/:order_id" element={<KitchenTicketPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
@@ -96,6 +99,7 @@ function AppRouter() {
             <Route path="printers" element={<AdminPrinters />} />
             <Route path="print-settings" element={<AdminPrintSettings />} />
             <Route path="print-jobs" element={<AdminPrintJobs />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />

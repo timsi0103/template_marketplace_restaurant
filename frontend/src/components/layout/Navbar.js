@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useStoreStatus } from "@/contexts/StoreStatusContext";
 import { useState, useRef, useEffect } from "react";
+import SearchBar from "@/components/SearchBar";
 
 export default function Navbar() {
   const location = useLocation();
@@ -100,8 +101,9 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Right side: Cart + User */}
+          {/* Right side: Search + Cart + User */}
           <div className="flex items-center gap-4">
+            <SearchBar className="hidden md:block w-56 lg:w-64" />
             <button
               onClick={() => setDrawerOpen(true)}
               data-testid="navbar-cart-btn"

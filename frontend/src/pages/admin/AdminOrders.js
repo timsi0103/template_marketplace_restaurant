@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Printer, Receipt as ReceiptIcon, Truck, Store, Utensils, Eye } from "lucide-react";
+import { Loader2, RefreshCw, Printer, Receipt as ReceiptIcon, Truck, Store, Utensils, Eye, Search as SearchIcon, X } from "lucide-react";
 
 const API = "/api";
 
@@ -27,18 +27,28 @@ export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("active"); // active | all
+  const [q, setQ] = useState("");
 
   const load = async () => {
     try {
-      // Reuse admin queue for active, or fetch everything for all
+      if (q.trim()) {
+        const { data } = await axios.get(`${API}/admin/search/orders`, { params: { q: q.trim() }, withCredentials: true });
+        setOrders(data.orders || []);
+        return;
+      }
       const path = filter === "active" ? `${API}/admin/queue` : `${API}/orders?all=1`;
       const { data } = await axios.get(path, { withCredentials: true });
-      const list = data.queue || data.orders || [];
-      setOrders(list);
+      setOrders(data.queue || data.orders || []);
     } catch { toast.error("Could not load orders"); }
     finally { setLoading(false); }
   };
   useEffect(() => { setLoading(true); load(); /* eslint-disable-next-line */ }, [filter]);
+  useEffect(() => {
+    if (!q.trim()) return;
+    const t = setTimeout(() => { setLoading(true); load(); }, 300);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line
+  }, [q]);
 
   return (
     <div data-testid="admin-orders-page" className="p-6 sm:p-10 max-w-6xl">
@@ -47,14 +57,30 @@ export default function AdminOrders() {
           <h1 className="font-heading text-3xl font-bold text-brand-text">Orders</h1>
           <p className="font-body text-sm text-brand-text-secondary mt-1">Manage incoming and active orders. Reprint any ticket in one click.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary" />
+            <input
+              data-testid="admin-orders-search-input"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search order #, name, email…"
+              className="pl-8 pr-8 h-9 w-56 rounded-full border border-brand-border bg-brand-surface focus:bg-white focus:border-brand-primary/60 text-sm outline-none"
+            />
+            {q && (
+              <button onClick={() => setQ("")} data-testid="admin-orders-search-clear" className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-text-secondary hover:text-brand-primary">
+                <X size={14} />
+              </button>
+            )}
+          </div>
           <div className="inline-flex rounded-full border border-brand-border p-1 bg-brand-surface">
             {["active", "all"].map((k) => (
               <button
                 key={k}
                 data-testid={`orders-filter-${k}`}
                 onClick={() => setFilter(k)}
-                className={`px-3 py-1 text-xs font-semibold rounded-full capitalize transition ${filter === k ? "bg-brand-primary text-white" : "text-brand-text-secondary"}`}
+                disabled={!!q.trim()}
+                className={`px-3 py-1 text-xs font-semibold rounded-full capitalize transition ${filter === k ? "bg-brand-primary text-white" : "text-brand-text-secondary"} ${q.trim() ? "opacity-40 pointer-events-none" : ""}`}
               >{k}</button>
             ))}
           </div>
