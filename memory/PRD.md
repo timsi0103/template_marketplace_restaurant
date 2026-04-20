@@ -31,7 +31,15 @@
 23. Quick 86 / Sold-Out Toggle (Feb 2026)
 24. Branded Storefront & Admin Customization (Feb 2026)
 25. Menu Catalog Browsing & Search Overhaul (Feb 2026)
-26. Guest Checkout + Post-Purchase Account Creation (Feb 2026 — current)
+26. Guest Checkout + Post-Purchase Account Creation (Feb 2026)
+27. Sales Dashboard & Reports (Feb 2026 — current)
+
+### Phase 27 - Sales Dashboard & Reports (Feb 2026)
+- [x] Backend `analytics.py` extended: `today` block (orders/revenue/aov + fulfillment_mix), `previous_period` (+ revenue_delta_pct/order_delta_pct/aov_delta_pct), `heatmap` (7×24 day-of-week × hour matrix), `top_items` enriched with `image`, `item_id`, `category`, `trend_pct`, `direction`; `revenue_over_time` buckets now carry `previous` series for overlay.
+- [x] Backend `routes/reports.py` (new): GET `/api/admin/reports/export?type=orders|revenue|items&start&end` (CSV streaming, default last 30 days); full schedule CRUD (`/api/admin/reports/schedules`) + mocked `/send-now` that computes rows and updates `last_sent_at`, `last_status`, `last_row_count`, `next_send_at`.
+- [x] Frontend: `TodayStrip` (gradient card pinned at top with today orders/revenue/AOV + delivery/pickup/dine-in counts), KPI card delta pills, revenue-trend chart with current+previous overlay and legend, `PeakHoursHeatmap` (7×24 color-graded cells + scale legend), enriched top-items list (image + rank + trend pill + category chip), `CategoryDonut` (SVG donut + legend), Export CSV button in header → `ExportDialog` with type cards + date-range pickers, `ReportScheduler` inline section (create/edit/pause/send-now/delete).
+- [x] Email delivery for scheduled reports is MOCKED (logs only, persists delivery state).
+- [x] Tested: 13/13 backend pytest pass, full scripted frontend flow validated — TodayStrip, deltas, heatmap (168 cells with data-value), top-item cards, donut + legend, CSV download via dialog, schedule lifecycle (create → send-now → toggle → delete). 0 bugs.
 
 ### Phase 26 - Guest Checkout + Account Claim (Feb 2026)
 - [x] Backend `/app/backend/routes/guest_conversion.py`: POST `/api/auth/check-email` (returns {exists, auth_provider}) + POST `/api/auth/claim-orders` (validates order_id & email match, rejects if account exists (409), creates user, links every guest order on the email to the new user_id, accrues loyalty pts = Σ floor(order.total), sets auth cookies).
