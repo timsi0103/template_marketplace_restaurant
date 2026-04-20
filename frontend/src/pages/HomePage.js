@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Plus, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useStorefront, applyStorefrontMeta } from "@/hooks/useStorefront";
+import { AboutSection, FeaturedCategories, SocialProofSection, BrandFooter } from "@/components/storefront/Sections";
 
 const heroProduct = {
   tag: "CHEF'S SELECTION",
@@ -38,6 +40,23 @@ const cravingFallback = [];
 export default function HomePage() {
   const { addItem } = useCart();
   const [cravingItems, setCravingItems] = useState(cravingFallback);
+  const storefront = useStorefront();
+
+  useEffect(() => {
+    if (storefront) applyStorefrontMeta(storefront);
+  }, [storefront]);
+
+  // Dynamic brand-driven hero fields (fallback to hardcoded defaults if not loaded yet)
+  const hero = storefront?.hero || {};
+  const dynamicHero = {
+    tag: hero.eyebrow || heroProduct.tag,
+    title: hero.title || heroProduct.title,
+    description: hero.subtitle || heroProduct.description,
+    price: heroProduct.price,
+    image: hero.image_url || heroProduct.image,
+    cta_label: hero.cta_label || "Order Now",
+    cta_link: hero.cta_link || "/menu",
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -83,26 +102,26 @@ export default function HomePage() {
                 data-testid="hero-tag"
                 className="inline-block w-fit px-3 py-1 text-[10px] sm:text-xs font-body font-semibold tracking-widest uppercase bg-brand-orange text-white rounded mb-4 sm:mb-6"
               >
-                {heroProduct.tag}
+                {dynamicHero.tag}
               </span>
               <h1
                 data-testid="hero-title"
                 className="font-heading text-3xl sm:text-5xl lg:text-6xl font-bold text-brand-text tracking-tight leading-none mb-3 sm:mb-4"
               >
-                {heroProduct.title}
+                {dynamicHero.title}
               </h1>
               <p
                 data-testid="hero-description"
                 className="font-body text-xs sm:text-sm text-brand-text-secondary leading-relaxed mb-5 sm:mb-8 max-w-md"
               >
-                {heroProduct.description}
+                {dynamicHero.description}
               </p>
               <Link
-                to="/menu"
+                to={dynamicHero.cta_link}
                 data-testid="hero-cta-btn"
                 className="inline-flex items-center justify-center w-fit px-6 py-3 bg-brand-primary text-white font-body text-sm font-medium rounded-full hover:bg-brand-primary-hover active:scale-[0.97] transition-all cta-pulse"
               >
-                Taste the Tradition
+                {dynamicHero.cta_label}
               </Link>
               <div className="mt-4 sm:mt-6 bg-brand-bg inline-flex items-center gap-2 w-fit px-3 sm:px-4 py-2 rounded-lg border border-brand-border">
                 <span className="font-body text-[10px] sm:text-xs text-brand-text-secondary uppercase tracking-wider">From the Oven</span>
@@ -112,8 +131,8 @@ export default function HomePage() {
             {/* Hero Image */}
             <div className="relative h-48 sm:h-64 lg:h-auto overflow-hidden">
               <img
-                src={heroProduct.image}
-                alt={heroProduct.title}
+                src={dynamicHero.image}
+                alt={dynamicHero.title}
                 data-testid="hero-image"
                 className="w-full h-full object-cover"
               />
@@ -267,6 +286,11 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+
+      <FeaturedCategories />
+      <AboutSection about={storefront?.about} />
+      <SocialProofSection />
+      <BrandFooter storefront={storefront} />
     </div>
   );
 }
