@@ -677,11 +677,19 @@ async def get_store_status():
     else:
         open_m = _time_to_minutes(delivery_h.get("open_time", "10:00"))
         close_m = _time_to_minutes(delivery_h.get("close_time", "22:00"))
-        if open_m <= current_minutes < close_m:
-            is_open = True
-            close_time_display = _minutes_to_display(close_m)
+        # Wrap-around (overnight) shift: e.g. open 21:00, close 02:00, or 24hr shifts like 09:00-08:59
+        if close_m <= open_m:
+            if current_minutes >= open_m or current_minutes < close_m:
+                is_open = True
+                close_time_display = _minutes_to_display(close_m)
+            else:
+                is_open = False
         else:
-            is_open = False
+            if open_m <= current_minutes < close_m:
+                is_open = True
+                close_time_display = _minutes_to_display(close_m)
+            else:
+                is_open = False
 
     # Find next opening time
     if not is_open:
@@ -708,8 +716,13 @@ async def get_store_status():
         else:
             om = _time_to_minutes(sh.get("open_time", "10:00"))
             cm = _time_to_minutes(sh.get("close_time", "22:00"))
+            if cm <= om:
+                # Wrap-around shift
+                available = current_minutes >= om or current_minutes < cm
+            else:
+                available = om <= current_minutes < cm
             service_status[svc] = {
-                "available": om <= current_minutes < cm,
+                "available": available,
                 "hours": f"{_minutes_to_display(om)} - {_minutes_to_display(cm)}"
             }
 
