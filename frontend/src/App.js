@@ -37,6 +37,8 @@ import AdminHours from "@/pages/admin/AdminHours";
 import AdminHolidays from "@/pages/admin/AdminHolidays";
 import AdminCoupons from "@/pages/admin/AdminCoupons";
 import AdminCouponForm from "@/pages/admin/AdminCouponForm";
+import AdminKDSSettings from "@/pages/admin/AdminKDSSettings";
+import KDSBoard from "@/pages/KDSBoard";
 import CategoryLandingPage from "@/pages/CategoryLandingPage";
 
 function AppRouter() {
@@ -63,6 +65,8 @@ function AppRouter() {
           <Route path="/orders/track/:order_id" element={<OrderTrackingPage />} />
           <Route path="/loyalty" element={<LoyaltyPage />} />
           <Route path="/kitchen" element={<KitchenPage />} />
+          <Route path="/kds" element={<KDSBoard />} />
+          <Route path="/kds/:station" element={<KDSBoard />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
             <Route path="catalog" element={<AdminCatalog />} />
@@ -80,6 +84,7 @@ function AppRouter() {
             <Route path="coupons" element={<AdminCoupons />} />
             <Route path="coupons/new" element={<AdminCouponForm />} />
             <Route path="coupons/:id/edit" element={<AdminCouponForm />} />
+            <Route path="kds-settings" element={<AdminKDSSettings />} />
             <Route path="orders" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Orders</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Order management coming soon.</p></div>} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />

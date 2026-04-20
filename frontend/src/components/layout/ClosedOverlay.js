@@ -10,7 +10,7 @@ export default function ClosedOverlay() {
   if (status.is_open) return null;
 
   // Don't show overlay on admin, auth, or checkout pages
-  const hiddenPaths = ["/admin", "/login", "/signup", "/forgot-password", "/reset-password", "/checkout", "/order", "/menu", "/product", "/kitchen"];
+  const hiddenPaths = ["/admin", "/login", "/signup", "/forgot-password", "/reset-password", "/checkout", "/order", "/menu", "/product", "/kitchen", "/kds"];
   if (hiddenPaths.some(p => location.pathname.startsWith(p))) return null;
 
   return (
