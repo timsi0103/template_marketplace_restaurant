@@ -1,0 +1,44 @@
+{
+  "summary": "Full E2E regression across all 32 phases. Backend pytest: 450 passed / 10 failed / 7 skipped (97.8%). Frontend: all 24 admin sidebar links load with zero non-401 console errors, public storefront + JSON-LD injection intact on /, /menu, /product/{id}, canonical URL templating (Phase 32 bug) verified fixed (now emits /product/item-010 not /product/%7Bid%7D). Login + JWT flow works, KDS + Live Queue + SEO admin render clean. No critical regressions found. 10 pytest failures are a mix of (a) stale test expectations written before auth/error-handling hardening (test_api.py), (b) seed-data drift (sold_out/seasonal items now in_stock), (c) vocabulary drift in coupon rule.type (backend returns 'fixed', tests expect 'flat'), (d) one real minor contract change: POST /api/admin/store/pause now requires a JSON body and returns 422 on empty POST — tests expected an auth check (401) or a body-less toggle (200).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/store/pause", "issue": "Requires PauseRequest body; empty POST returns 422 before auth check (so unauth also sees 422 instead of 401). Previous contract appears to have been a body-less toggle. Either (a) make body Optional with default {} and keep toggle semantics, or (b) document and update tests. File: /app/backend/routes/store.py:186-205."},
+      {"endpoint": "GET /api/admin/coupons/validate (rule.type field)", "issue": "Response has rule.type == 'fixed' but older test expects 'flat'. If this is a vocabulary change, update downstream consumers + docs; otherwise revert."},
+      {"endpoint": "GET /api/menu/items/item_002 & item_003", "issue": "Seed-data drift: items now return status='in_stock' but were seeded as 'sold_out'/'seasonal'. Either 86/sold-out seeder did not run or admin toggled them back. Tests test_get_sold_out_item / test_get_seasonal_item both fail."},
+      {"endpoint": "GET /api/menu/items/<invalid> and GET /api/orders/<invalid>", "issue": "Now correctly return 404 (good), but legacy test_api.py still expects 200 with error message. Test file is outdated — skeleton comment still present."},
+      {"endpoint": "GET /api/admin/dashboard and /api/admin/queue", "issue": "Now require auth (return 401), but test_api.py has unauth GET expecting 200. Test file outdated."},
+      {"endpoint": "GET /api/payments/status/<order_id>", "issue": "test_payment_status_for_created_order: order left over from prior runs shows payment_status='paid' whereas test asserts unpaid/initiated/pending. Test-data isolation issue, not backend bug."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/admin/seo > Global tab", "issues": ["Canonical Site URL still set to https://seo-test.example.com (leftover from iteration_31 test fixtures). This value is echoed into all public <link rel=canonical> tags and og:url — production visitors will see canonical URLs pointing at seo-test.example.com. Main agent should reset site_url to the real REACT_APP_BACKEND_URL (or empty for auto-detect)."]},
+      {"screen": "/admin/live-queue and /admin/tax-charges", "issues": ["No top-level h1/h2 — page renders fine but accessibility/heading structure is thin. Minor."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/ (all 27 files)", "/app/test_reports/pytest/iteration_32.xml"],
+  "action_items": [
+    "Decide the /api/admin/store/pause contract: either make PauseRequest body optional (accept {} and toggle) or update test_store_hours.py::test_pause_ordering_toggle to send {paused: true} and expect 401 (not 422) when unauth. File: /app/backend/routes/store.py:186.",
+    "Reset SEO global site_url from 'https://seo-test.example.com' to production canonical (or clear it). File path: admin UI /admin/seo > Global tab, stored in db 'seo_global' collection.",
+    "Refresh 86/sold-out seed so item_002 is sold_out and item_003 is seasonal, OR update test_menu_catalog fixtures to pick items dynamically.",
+    "Modernise /app/backend/tests/test_api.py: it predates auth hardening and still asserts 200 for /api/admin/* unauth requests and for /api/menu/items/<missing>. Either delete the class or flip asserts to 401/404.",
+    "Reconcile coupon response vocabulary: rule.type is 'fixed' in code but 'flat' in test_checkout_orders.py — pick one and align."
+  ],
+  "critical_code_review_comments": [
+    "routes/store.py:187 — pause_ordering endpoint changed to POST {paused:bool} body contract but auth dependency fires after Pydantic validation, so 422 masks 401. Reorder so auth runs first (Depends in signature before body), or make body optional.",
+    "Public canonical/og:url derived from seo_global.site_url with no fallback to Request.base_url — when site_url is stale/test-value, every public page leaks wrong canonical. Consider fallback to request.base_url when site_url is missing OR contains 'example.com'.",
+    "test_api.py is the oldest test file and has multiple stale assertions. Flag it for rewrite/retirement.",
+    "Seed-data tests (test_menu_catalog) couple test IDs to 86/sold-out state rather than creating+tearing down their own fixtures — brittle."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "97.8% (450/460 excluding 7 skipped)", "frontend": "100% across tested admin + public routes (zero non-401 console errors, all JSON-LD present, canonical fixed)"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123! — login succeeds, JWT set, /admin shell loads fully.",
+  "seed_data_creation": "None. Relied on existing seed + pytest self-contained fixtures. Test fixtures clean after themselves.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Full regression pass. Admin sidebar has 24 entries all reachable. SEO tabs use testids seo-tab-pages/structured/global/redirects/sitemap/health. Login testids: login-email-input, login-password-input, login-submit-btn. Cart testids: navbar-cart-btn, cart-sidebar, cart-empty. Product detail testid: product-add-to-cart-btn (variant-gated for items with required variants). Public pages emit JSON-LD: / → Organization+Restaurant+WebSite, /menu → Menu+BreadcrumbList, /product/{id} → MenuItem+BreadcrumbList. /api/seo/sitemap.xml = 200, /api/seo/robots.txt = 200 with proper Disallow+Sitemap lines. 10 backend pytest failures all analysed above; none block a production release but action items should be addressed before green-lighting CI gate.",
+  "rca_of_the_issue": "No new HIGH bugs. Phase 32 canonical-URL bug reported in iteration_31 is verified FIXED — /product/item-010 now returns canonical=https://seo-test.example.com/product/item-010 (literal {id} substituted). The only remaining cosmetic is the stale site_url test fixture; the fix is data-side, not code-side."
+}
