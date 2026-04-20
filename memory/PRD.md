@@ -26,7 +26,19 @@
 18. Admin Accept Order Bug Fix (Feb 2026)
 19. Order Ticket Printing / Thermal Printer (Feb 2026)
 20. Backend Refactor + Search + Analytics (Feb 2026)
-21. Real-Time Order Queue + Audio Alerts (Feb 2026 — current)
+21. Real-Time Order Queue + Audio Alerts (Feb 2026)
+22. Prep Time Estimation & Order Throttling (Feb 2026 — current)
+
+### Phase 22 - Prep Time & Throttling (Feb 2026)
+- [x] Backend: `POST /api/store/eta` (public) — computes ETA from cart categories/items + prep-time map + queue depth. Returns `{asap_available, eta_minutes, eta_label, capacity_state, active_count, max_concurrent_orders, paused, next_available_slot}`.
+- [x] Backend: `GET/PATCH /api/admin/throttle/settings` (max_concurrent_orders, auto_pause_threshold, slot_granularity_minutes, base_buffer_minutes), `GET /api/admin/throttle/status` (live utilization), `GET/PUT /api/admin/prep-times` (reuses KDS target_prep_minutes_by_category for DRY).
+- [x] Auto-pause hook: `maybe_auto_pause()` fires on payment confirm; when active ≥ threshold, flips store pause_ordering. Explicit admin resume required.
+- [x] Order creation now uses ETA-based `estimated_minutes` (replaces hardcoded 30/20 min).
+- [x] Frontend: `/admin/throttle` page — live load gauge, state badge (Normal/Busy/At Capacity/Paused), capacity config inputs, auto-pause toggle, prep times table with add/edit/remove, manual pause/resume button.
+- [x] Frontend: `/admin/queue` — throttle-banner at top, color-coded by state.
+- [x] Frontend: `/checkout` summary card shows live `Ready in ~X min` ETA; when at capacity, shows `Next available slot: HH:MM` and grey-overrides ASAP.
+- [x] Sidebar: "Prep & Throttle" (Gauge icon).
+- [x] Tested: 18/18 new pytest pass; testing agent detected & fixed 2 frontend self-inflicted bugs (missing state declaration + orphan JSX); all testids verified.
 
 ### Phase 21 - Live Queue + Audio Alerts (Feb 2026)
 - [x] Backend: `GET /api/admin/queue/live` (active orders + today summary: orders_today, revenue_today, pending/in-progress counts, avg_prep_minutes); `POST /api/admin/orders-batch/accept` (batch accept with per-order auto-queue hook). Path intentionally `orders-batch` to avoid parametric collision with `/admin/orders/{id}/accept`.
