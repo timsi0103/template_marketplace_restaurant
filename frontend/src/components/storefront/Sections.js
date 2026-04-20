@@ -92,37 +92,40 @@ export function SocialProofSection() {
   return (
     <section data-testid="social-proof-section" className="bg-brand-surface py-12 sm:py-16 border-y border-brand-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          {/* KPI */}
-          <div className="text-center lg:text-left">
+        {/* Headline KPI row */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-6 mb-8 sm:mb-10">
+          <div>
             <div className="inline-flex items-center gap-1.5 mb-2">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={18} className="fill-amber-500 text-amber-500" />
+                <Star key={i} size={16} className="fill-amber-500 text-amber-500" />
               ))}
             </div>
-            <div className="font-heading text-5xl font-bold text-brand-text" data-testid="social-avg-rating">{data.average_rating.toFixed(1)}</div>
-            <div className="font-body text-sm text-brand-text-secondary mt-1">
-              from <span className="font-semibold" data-testid="social-review-count">{data.review_count}</span> reviews
-            </div>
-            <div className="mt-5 inline-flex flex-col items-center lg:items-start">
-              <div className="font-heading text-3xl font-bold text-brand-primary" data-testid="social-total-orders">{data.total_orders.toLocaleString()}</div>
-              <div className="text-xs uppercase tracking-wider text-brand-text-secondary font-semibold">orders served</div>
-            </div>
-          </div>
-          {/* Reviews */}
-          <div className="lg:col-span-2 space-y-4" data-testid="social-reviews-list">
-            {(data.featured_reviews || []).slice(0, 3).map((r, i) => (
-              <div key={i} className="bg-white rounded-xl border border-brand-border p-4 sm:p-5" data-testid={`review-${i}`}>
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  {[...Array(r.rating)].map((_, j) => <Star key={j} size={12} className="fill-amber-500 text-amber-500" />)}
-                </div>
-                <blockquote className="font-body text-sm sm:text-base text-brand-text italic leading-relaxed">“{r.body}”</blockquote>
-                <div className="mt-2 text-xs text-brand-text-secondary">
-                  <span className="font-semibold">{r.author}</span>{r.dish && <> · <span className="italic">{r.dish}</span></>}
-                </div>
+            <div className="flex items-baseline gap-3">
+              <div className="font-heading text-5xl font-bold text-brand-text leading-none" data-testid="social-avg-rating">{data.average_rating.toFixed(1)}</div>
+              <div className="font-body text-sm text-brand-text-secondary">
+                from <span className="font-semibold" data-testid="social-review-count">{data.review_count}</span> reviews
               </div>
-            ))}
+            </div>
           </div>
+          <div className="sm:text-right">
+            <div className="font-heading text-3xl sm:text-4xl font-bold text-brand-primary leading-none" data-testid="social-total-orders">{data.total_orders.toLocaleString()}</div>
+            <div className="text-[11px] uppercase tracking-wider text-brand-text-secondary font-semibold mt-1.5">orders served</div>
+          </div>
+        </div>
+
+        {/* Reviews grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="social-reviews-list">
+          {(data.featured_reviews || []).slice(0, 3).map((r, i) => (
+            <div key={i} className="bg-white rounded-xl border border-brand-border p-5 flex flex-col" data-testid={`review-${i}`}>
+              <div className="flex items-center gap-1.5 mb-2">
+                {[...Array(r.rating)].map((_, j) => <Star key={j} size={12} className="fill-amber-500 text-amber-500" />)}
+              </div>
+              <blockquote className="font-body text-sm sm:text-base text-brand-text italic leading-relaxed flex-1">“{r.body}”</blockquote>
+              <div className="mt-3 pt-3 border-t border-brand-border/60 text-xs text-brand-text-secondary">
+                <span className="font-semibold text-brand-text">{r.author}</span>{r.dish && <> · <span className="italic">{r.dish}</span></>}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
