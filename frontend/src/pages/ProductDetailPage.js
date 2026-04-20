@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { Minus, Plus, ArrowLeft, ChevronLeft, ChevronRight, AlertCircle, Package, X, ZoomIn } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,9 @@ const API_BASE = "/api";
 
 export default function ProductDetailPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const editLineId = searchParams.get("editLine");
   const [product, setProduct] = useState(null);
   const [modifierGroups, setModifierGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +24,8 @@ export default function ProductDetailPage() {
   const [errors, setErrors] = useState({});
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState(0);
-  const { addItem } = useCart();
+  const { addItem, removeItem, items: cartItems, setDrawerOpen } = useCart();
+  const editingLine = editLineId ? cartItems.find((i) => i.cartLineId === editLineId) : null;
 
   // Keyboard nav for lightbox
   const handleLightboxKey = useCallback((e) => {
@@ -47,20 +51,44 @@ export default function ProductDetailPage() {
         const modData = await modResp.json();
         setProduct(itemData);
         setModifierGroups(modData.groups || []);
-        // Pre-select first in-stock variant
-        const variants = itemData.variants || [];
-        if (variants.length > 0) {
-          const firstAvail = variants.find(v => v.status !== "sold_out") || variants[0];
-          setSelectedVariant(firstAvail.id);
-        }
-        // Pre-select first option for required modifier groups
-        const initial = {};
-        for (const g of modData.groups || []) {
-          if (g.type === "required" && g.options?.length > 0) {
-            initial[g.id] = [g.options[0].id];
+
+        // If editing an existing cart line, preselect that state
+        if (editingLine) {
+          if (editingLine.variant?.id) setSelectedVariant(editingLine.variant.id);
+          else if (itemData.variants?.length > 0) {
+            const firstAvail = itemData.variants.find(v => v.status !== "sold_out") || itemData.variants[0];
+            setSelectedVariant(firstAvail.id);
           }
+          const preselect = {};
+          for (const g of modData.groups || []) {
+            const matching = (editingLine.modifiers || [])
+              .filter((m) => m.group === g.name)
+              .map((m) => (g.options || []).find((o) => o.name === m.name)?.id)
+              .filter(Boolean);
+            if (matching.length > 0) preselect[g.id] = matching;
+            else if (g.type === "required" && g.options?.length > 0) {
+              preselect[g.id] = [g.options[0].id];
+            }
+          }
+          setSelections(preselect);
+          setInstructions(editingLine.instructions || "");
+          setQty(Math.max(1, editingLine.qty || 1));
+        } else {
+          // Pre-select first in-stock variant
+          const variants = itemData.variants || [];
+          if (variants.length > 0) {
+            const firstAvail = variants.find(v => v.status !== "sold_out") || variants[0];
+            setSelectedVariant(firstAvail.id);
+          }
+          // Pre-select first option for required modifier groups
+          const initial = {};
+          for (const g of modData.groups || []) {
+            if (g.type === "required" && g.options?.length > 0) {
+              initial[g.id] = [g.options[0].id];
+            }
+          }
+          setSelections(initial);
         }
-        setSelections(initial);
       } catch {
         setProduct(null);
       } finally {
@@ -68,7 +96,8 @@ export default function ProductDetailPage() {
       }
     };
     load();
-  }, [id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, editLineId]);
 
   if (loading) return <div className="min-h-screen flex justify-center py-20"><div className="w-8 h-8 border-2 border-brand-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (!product) return <div className="min-h-screen flex flex-col items-center justify-center gap-4"><p className="font-body text-sm text-brand-text-secondary">Item not found</p><Link to="/menu" className="font-body text-sm text-brand-primary">Back to Menu</Link></div>;
@@ -138,6 +167,10 @@ export default function ProductDetailPage() {
         if (opt) modifiers.push({ group: group.name, name: opt.name, price: opt.price_adjustment || 0 });
       }
     }
+    if (editingLine) {
+      // Replace existing line: remove old, add new (which may dedup with another existing line)
+      removeItem(editingLine.cartLineId);
+    }
     addItem({
       id: product.id,
       name: product.name,
@@ -148,6 +181,11 @@ export default function ProductDetailPage() {
       instructions,
       qty,
     });
+    if (editingLine) {
+      setDrawerOpen(true);
+      navigate("/menu");
+      return;
+    }
     setQty(1);
   };
 
@@ -353,7 +391,7 @@ export default function ProductDetailPage() {
               <button data-testid="qty-increase-btn" onClick={() => setQty(q => q + 1)} className="w-10 h-10 flex items-center justify-center text-brand-text hover:bg-brand-bg"><Plus size={16} /></button>
             </div>
             <button data-testid="add-to-order-btn" onClick={handleAddToOrder} className={`flex-1 flex items-center justify-between px-6 py-3 text-white font-body text-sm font-semibold rounded-full transition-colors ${hasErrors ? "bg-red-500 hover:bg-red-600" : "bg-brand-primary hover:bg-brand-primary-hover"}`}>
-              <span>{hasErrors ? "Complete required selections" : "Add to Order"}</span><span>${total.toFixed(2)}</span>
+              <span>{hasErrors ? "Complete required selections" : editingLine ? "Update item" : "Add to Order"}</span><span>${total.toFixed(2)}</span>
             </button>
           </div>
         )}
@@ -369,7 +407,7 @@ export default function ProductDetailPage() {
               <button data-testid="mobile-qty-increase-btn" onClick={() => setQty(q => q + 1)} className="w-11 h-11 flex items-center justify-center text-brand-text active:bg-brand-bg"><Plus size={18} /></button>
             </div>
             <button data-testid="mobile-add-to-order-btn" onClick={handleAddToOrder} className={`flex-1 flex items-center justify-between px-5 py-3.5 text-white font-body text-sm font-semibold rounded-full active:scale-[0.97] transition-all ${hasErrors ? "bg-red-500" : "bg-brand-primary"}`}>
-              <span>{hasErrors ? "Complete selections" : "Add to Order"}</span><span>${total.toFixed(2)}</span>
+              <span>{hasErrors ? "Complete selections" : editingLine ? "Update item" : "Add to Order"}</span><span>${total.toFixed(2)}</span>
             </button>
           </div>
         </div>

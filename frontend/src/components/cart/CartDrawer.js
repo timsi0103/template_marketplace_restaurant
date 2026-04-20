@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, AlertCircle, Tag, CheckCircle2, X, Loader2 } from "lucide-react";
+import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, AlertCircle, Tag, CheckCircle2, X, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
 import {
@@ -139,14 +139,27 @@ export default function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <h4 className="font-heading text-sm font-bold text-brand-text truncate">{item.name}</h4>
-                      <button
-                        data-testid={`cart-remove-${item.cartLineId}`}
-                        onClick={() => removeItem(item.cartLineId)}
-                        className="w-7 h-7 flex items-center justify-center text-brand-text-secondary hover:text-red-500 transition-colors flex-shrink-0"
-                        aria-label="Remove item"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <button
+                          data-testid={`cart-edit-${item.cartLineId}`}
+                          onClick={() => {
+                            setDrawerOpen(false);
+                            navigate(`/product/${item.id}?editLine=${item.cartLineId}`);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center text-brand-text-secondary hover:text-brand-primary transition-colors"
+                          aria-label="Edit item"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          data-testid={`cart-remove-${item.cartLineId}`}
+                          onClick={() => removeItem(item.cartLineId)}
+                          className="w-7 h-7 flex items-center justify-center text-brand-text-secondary hover:text-red-500 transition-colors"
+                          aria-label="Remove item"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Variant */}
