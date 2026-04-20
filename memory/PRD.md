@@ -33,7 +33,19 @@
 25. Menu Catalog Browsing & Search Overhaul (Feb 2026)
 26. Guest Checkout + Post-Purchase Account Creation (Feb 2026)
 27. Sales Dashboard & Reports (Feb 2026)
-28. Store Profile & Branding Configuration (Feb 2026 — current)
+28. Store Profile & Branding Configuration (Feb 2026)
+29. Operating Hours & Holiday Management (Feb 2026 — current)
+
+### Phase 29 - Operating Hours & Holiday Management (Feb 2026)
+- [x] Backend `routes/store.py` upgraded: `/store/status` now returns `pause_reason`, `pause_until`, `special_today`, `accept_advance_orders`, `max_days_ahead` alongside the existing service availability map.
+- [x] `/admin/store/pause` now takes `{paused?, reason?, estimated_reopen?}` — stores customer-visible reason + ETA when paused, clears them on resume.
+- [x] Special / extended hours CRUD (`/admin/store/special-hours`): single-doc-per-date upsert; overrides the weekly schedule and is surfaced via `/store/status.special_today`.
+- [x] Advance-order config (`GET/PATCH /admin/store/advance-orders`) clamped to 1–30 days.
+- [x] Holidays: `HolidayCreate.message` added and passed through to the customer overlay.
+- [x] `/admin/store/overview` returns next 7 days with effective per-service hours, holiday/special badges, and **delivery-vs-kitchen conflict warnings**.
+- [x] Admin `/admin/hours` fully rewritten: pause card + emergency **Pause dialog** (reason + reopen date/time), weekly 3-service grid (per-day per-service time pickers + toggles + "apply to all days"), Next-7-days overview table with conflict chips, holidays + special-hours sections with inline create/list/delete, advance-orders card.
+- [x] `ClosedOverlay` surfaces `holiday-message`, `pause-reason`, `pause-until`, and hides the `Order for Later` CTA when `accept_advance_orders=false`.
+- [x] Tested: 18/18 pytest pass, full scripted frontend flow validated, conflict detection verified on real overnight-delivery config. 0 bugs.
 
 ### Phase 28 - Store Profile & Branding Configuration (Feb 2026)
 - [x] Emergent Object Storage integration (`routes/uploads.py`): admin-auth'd POST `/api/admin/uploads` (multipart, 6 MB cap, image MIME whitelist), public GET `/api/files/{id}` proxy with correct Content-Type + cache-control, GET list + soft-delete. Storage key initialized from `EMERGENT_LLM_KEY`.
