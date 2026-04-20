@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { Minus, Plus, Loader2, ExternalLink } from "lucide-react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useCart } from "@/contexts/CartContext";
 
 const API = "/api";
@@ -81,6 +81,7 @@ export default function QuickViewModal({ itemId, open, onClose }) {
     <Dialog open={open} onOpenChange={(v) => !v && onClose?.()}>
       <DialogContent data-testid="quick-view-modal" className="max-w-3xl p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto">
         <DialogTitle className="sr-only">{item?.name || "Item preview"}</DialogTitle>
+        <DialogDescription className="sr-only">Item details with variants, modifiers, and add-to-cart.</DialogDescription>
         {loading || !item ? (
           <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-brand-primary" /></div>
         ) : (

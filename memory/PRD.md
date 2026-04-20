@@ -29,7 +29,17 @@
 21. Real-Time Order Queue + Audio Alerts (Feb 2026)
 22. Prep Time Estimation & Order Throttling (Feb 2026)
 23. Quick 86 / Sold-Out Toggle (Feb 2026)
-24. Branded Storefront & Admin Customization (Feb 2026 — current)
+24. Branded Storefront & Admin Customization (Feb 2026)
+25. Menu Catalog Browsing & Search Overhaul (Feb 2026 — current)
+
+### Phase 25 - Menu/Catalog Browsing & Search (Feb 2026)
+- [x] Backend `/app/backend/routes/catalog_settings.py`: GET `/api/catalog/settings` (public) + GET/PATCH `/api/admin/catalog/settings` for visible_dietary_tags, default_sort, quick_view_enabled, price_min/max, sticky_category_bar, show_in_stock_toggle. Sort + dietary tag inputs are validated against whitelists (400 on invalid sort).
+- [x] Backend `/api/search/menu` extended: multi `dietary[]` ($all), `min_price`/`max_price`, `in_stock_only`, `sort` (popularity|price_asc|price_desc|newest|name_asc), limit cap 60.
+- [x] `MenuItem` model + seed backfill: every seed item 001–010 carries a realistic `dietary_tags` array (vegan / vegetarian / gluten_free / dairy_free / halal / nut_free / spicy). Idempotent.
+- [x] Frontend `/menu` rewritten: sticky toolbar (search input + sort select + filters button), autocomplete dropdown (images + price), sticky category pills row (scroll-to-section), filter drawer (dietary chips, price-range slider, in-stock switch), active-filter chip row with clear-all, sort options, no-results state with friendly copy + suggestion chips, grouped result sections with ref-based smooth scroll.
+- [x] QuickViewModal (`/app/frontend/src/components/menu/QuickViewModal.js`): image, variants, modifiers, qty, add-to-cart, 'Full details' link. Admin can disable via quick_view_enabled → cards revert to direct navigation.
+- [x] Admin `/admin/catalog-settings` page (sidebar "Menu & Search", Filter icon): dietary toggle grid, default-sort select, price bounds inputs, quick-view / sticky-bar / in-stock switches. Dirty-state save, discard, preview-menu link.
+- [x] Tested: 20/20 new backend pytests pass; full scripted frontend flow validated — sticky bar scroll, autocomplete, multi-dietary filter, price slider, sort, quick-view add-to-cart, quick-view disabled path, admin save propagation. 0 functional bugs. A11y: added DialogDescription to QuickViewModal post-test.
 
 ### Phase 24 - Branded Storefront & Customization Panel (Feb 2026)
 - [x] Backend `/app/backend/routes/storefront.py`: GET `/api/storefront/settings` (public), GET/PATCH `/api/admin/storefront/settings` (admin, deep-merge), GET `/api/storefront/social-proof` (orders_today count + seeded reviews + avg rating).
