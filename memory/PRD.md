@@ -20,7 +20,23 @@
 12. Global Payment Gateway screens
 13. Promo Code / Coupon Redemption
 14. Order Placement & Confirmation
-15. Order History & Reorder (current)
+15. Order History & Reorder
+16. Kitchen Display System (KDS) (current)
+
+### Phase 16 - Kitchen Display System
+- [x] Full-screen dark KDS board at `/kds` (hides store-closed overlay) with 5s polling
+- [x] Per-station view at `/kds/:station` — filters items by `station_routing` config
+- [x] Order cards: order number, fulfillment badge, customer/table, live MM:SS timer from `accepted_at`, items with modifiers + special instructions
+- [x] Color-coded urgency: green (<80% of target), yellow (80–100%), red (>100%, animate-pulse)
+- [x] Tap-to-bump items: pending → started → ready (PATCH /api/admin/kds/orders/:id/items/:idx)
+- [x] Bump whole order button: POST /api/admin/kds/orders/:id/bump (advances to ready or out_for_delivery)
+- [x] Audio chime (Web Audio API) on new arrivals + persisted mute toggle
+- [x] Column layout switcher (2/3/4) persisted via settings default
+- [x] New `/admin/kds-settings` page: audio toggle, default columns, target prep minutes per category (add/rename/delete), station routing (add/remove stations, toggle category chips)
+- [x] Default categories seeded: mains/entrees/appetizers/starters/salads/sides/desserts/pastries/drinks/cocktails
+- [x] Default stations seeded: grill/bar/dessert/cold
+- [x] Sidebar nav entry 'Kitchen (KDS)' added
+- [x] Tested via testing_agent_v3_fork iteration_16 — Backend 100% (23/23), Frontend 100%
 
 ### Phase 15 - Order History & Reorder
 - [x] New `/orders` customer order history page: logged-in user's orders (user_id match) + guest email lookup form
