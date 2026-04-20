@@ -32,7 +32,19 @@
 24. Branded Storefront & Admin Customization (Feb 2026)
 25. Menu Catalog Browsing & Search Overhaul (Feb 2026)
 26. Guest Checkout + Post-Purchase Account Creation (Feb 2026)
-27. Sales Dashboard & Reports (Feb 2026 — current)
+27. Sales Dashboard & Reports (Feb 2026)
+28. Store Profile & Branding Configuration (Feb 2026 — current)
+
+### Phase 28 - Store Profile & Branding Configuration (Feb 2026)
+- [x] Emergent Object Storage integration (`routes/uploads.py`): admin-auth'd POST `/api/admin/uploads` (multipart, 6 MB cap, image MIME whitelist), public GET `/api/files/{id}` proxy with correct Content-Type + cache-control, GET list + soft-delete. Storage key initialized from `EMERGENT_LLM_KEY`.
+- [x] Storefront extended: `cuisine_type`, `banner_image_url`, `social.whatsapp` — deep-merge preserved.
+- [x] Admin Storefront page: drag-drop `FileUploader`s for logo, favicon, hero banner, hero image, about photo; cuisine-type + WhatsApp inputs.
+- [x] New admin page `/admin/store-profile` (sidebar "Store Profile", MapPin icon) with:
+  - **Completion Card** — live % (checklist over 22 fields), direct links to incomplete sections (auto-refresh every 30s)
+  - **Locations Card** — CRUD with primary-location promotion, inheritance reminder
+  - **Google Business Profile Card** — connect / sync / disconnect cycle (MOCKED OAuth + Google API; persists `last_synced_at`, `last_sync_status`, `synced_fields`)
+  - **Branding Preview Card** — tabs for printed-receipt and confirmation-email previews using live logo, primary color, and contact fields
+- [x] Tested: 23/23 pytest + Playwright E2E passing; actual PNG upload round-trip to Emergent Object Storage verified; storefront deep-merge preserved; GBP cycle verified. 0 bugs.
 
 ### Phase 27 - Sales Dashboard & Reports (Feb 2026)
 - [x] Backend `analytics.py` extended: `today` block (orders/revenue/aov + fulfillment_mix), `previous_period` (+ revenue_delta_pct/order_delta_pct/aov_delta_pct), `heatmap` (7×24 day-of-week × hour matrix), `top_items` enriched with `image`, `item_id`, `category`, `trend_pct`, `direction`; `revenue_over_time` buckets now carry `previous` series for overlay.
