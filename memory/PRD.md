@@ -24,7 +24,13 @@
 16. Kitchen Display System (KDS)
 17. Checkout Bug Fix — 422 on POST /api/orders
 18. Admin Accept Order Bug Fix (Feb 2026)
-19. Order Ticket Printing / Thermal Printer (Feb 2026 — current)
+19. Order Ticket Printing / Thermal Printer (Feb 2026)
+20. Backend Refactor + Search + Analytics (Feb 2026 — current)
+
+### Phase 20 - Refactor + Search + Analytics (Feb 2026)
+- [x] **Refactor**: `server.py` (2,197 lines) → `server.py` (~70 lines) + `core.py` (app, api_router, db, auth helpers) + `models.py` (all Pydantic) + `seed.py` (startup seeding) + `routes/{auth,catalog,store,orders,payments,admin,kds,printers,search,analytics}.py`. Zero endpoint contract changes; 32/32 backend regression + 22/22 printer tests pass.
+- [x] **Search**: Public `GET /api/search/menu?q=&category=&tag=` + admin `GET /api/admin/search/orders?q=` + admin `GET /api/admin/search/catalog?q=`. Regex-escaped user input. SearchBar in Navbar with live dropdown + `/search` results page with category pills + live search input in `/admin/orders`.
+- [x] **Analytics**: `GET /api/admin/analytics/summary?range={day|week|month|quarter|year}` returning total_revenue, order_count, AOV, customers{unique,new,returning}, fulfillment_mix, top_items, top_categories, busy_hours[24], revenue_over_time buckets, top_customers. `/admin/analytics` page with KPI cards, revenue chart, busy-hours chart, fulfillment mix, top items/categories/customers, range toggle. Sidebar entry added.
 
 ### Phase 18 - Admin Accept Order Fix (Feb 2026)
 - [x] Root cause: payment-confirm set order `status="preparing"` immediately, and `/admin/orders/new` included `preparing` in its filter. Clicking Accept re-set to `preparing` (no-op) — incoming orders reappeared on reload.
