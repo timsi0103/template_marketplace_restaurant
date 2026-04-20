@@ -25,6 +25,8 @@ import routes.storefront    # noqa: F401
 import routes.catalog_settings  # noqa: F401
 import routes.guest_conversion  # noqa: F401
 import routes.reports         # noqa: F401
+import routes.uploads         # noqa: F401
+import routes.store_profile   # noqa: F401
 
 from seed import run_startup_seed
 

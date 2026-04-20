@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
-import { Save, Loader2, ExternalLink, Eye, RotateCcw, Palette, Type, Image as ImageIcon, Share2, Search, Info } from "lucide-react";
+import { Save, Loader2, ExternalLink, Eye, RotateCcw, Palette, Type, Image as ImageIcon, Share2, Search, Info, Utensils, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { refreshStorefront } from "@/hooks/useStorefront";
+import FileUploader from "@/components/admin/FileUploader";
 
 const API = "/api";
 
@@ -39,6 +40,7 @@ export default function AdminStorefront() {
     try {
       const payload = {
         brand_name: s.brand_name, tagline: s.tagline,
+        cuisine_type: s.cuisine_type, banner_image_url: s.banner_image_url,
         logo_url: s.logo_url, favicon_url: s.favicon_url,
         hero: s.hero, about: s.about, social: s.social,
         contact: s.contact, colors: s.colors, seo: s.seo,
@@ -94,12 +96,21 @@ export default function AdminStorefront() {
           <Field label="Tagline">
             <Input data-testid="tagline-input" value={s.tagline || ""} onChange={(e) => set("tagline", e.target.value)} />
           </Field>
-          <Field label="Logo URL" hint="Shown in footer. Leave blank to display brand name.">
-            <Input data-testid="logo-url-input" placeholder="https://…/logo.png" value={s.logo_url || ""} onChange={(e) => set("logo_url", e.target.value)} />
+          <Field label="Cuisine type" hint="e.g. Modern American · Seasonal / Neapolitan Pizza / Vegan Bowls">
+            <div className="relative">
+              <Utensils size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary" />
+              <Input data-testid="cuisine-type-input" value={s.cuisine_type || ""} onChange={(e) => set("cuisine_type", e.target.value)} className="pl-9" />
+            </div>
           </Field>
-          <Field label="Favicon URL">
-            <Input data-testid="favicon-url-input" placeholder="https://…/favicon.ico" value={s.favicon_url || ""} onChange={(e) => set("favicon_url", e.target.value)} />
-          </Field>
+          <div />
+        </div>
+      </Section>
+
+      <Section title="Logo & media" icon={ImageIcon} subtitle="Drag & drop or click to upload. Images persist to secure object storage.">
+        <div id="media" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <FileUploader label="Logo" purpose="logo" testId="upload-logo" value={s.logo_url} onChange={(v) => set("logo_url", v)} aspect="aspect-square" />
+          <FileUploader label="Favicon" purpose="favicon" testId="upload-favicon" value={s.favicon_url} onChange={(v) => set("favicon_url", v)} aspect="aspect-square" />
+          <FileUploader label="Hero banner image" purpose="banner" testId="upload-banner" value={s.banner_image_url} onChange={(v) => set("banner_image_url", v)} aspect="aspect-video" />
         </div>
       </Section>
 
@@ -124,9 +135,7 @@ export default function AdminStorefront() {
           <Field label="Eyebrow text" hint="Small uppercase label above title">
             <Input data-testid="hero-eyebrow-input" value={s.hero?.eyebrow || ""} onChange={(e) => setNested("hero", "eyebrow", e.target.value)} />
           </Field>
-          <Field label="Image URL">
-            <Input data-testid="hero-image-input" placeholder="https://…/hero.jpg" value={s.hero?.image_url || ""} onChange={(e) => setNested("hero", "image_url", e.target.value)} />
-          </Field>
+          <FileUploader label="Image" purpose="hero" testId="upload-hero" value={s.hero?.image_url} onChange={(v) => setNested("hero", "image_url", v)} aspect="aspect-video" />
           <Field label="Title" className="sm:col-span-2">
             <Input data-testid="hero-title-input" value={s.hero?.title || ""} onChange={(e) => setNested("hero", "title", e.target.value)} />
           </Field>
@@ -147,9 +156,7 @@ export default function AdminStorefront() {
           <Field label="Heading">
             <Input data-testid="about-heading-input" value={s.about?.heading || ""} onChange={(e) => setNested("about", "heading", e.target.value)} />
           </Field>
-          <Field label="Team / kitchen image URL">
-            <Input data-testid="about-image-input" value={s.about?.team_image_url || ""} onChange={(e) => setNested("about", "team_image_url", e.target.value)} />
-          </Field>
+          <FileUploader label="Team / kitchen photo" purpose="about" testId="upload-about" value={s.about?.team_image_url} onChange={(v) => setNested("about", "team_image_url", v)} aspect="aspect-video" />
           <Field label="Body copy" className="sm:col-span-2">
             <Textarea data-testid="about-body-input" rows={4} value={s.about?.body || ""} onChange={(e) => setNested("about", "body", e.target.value)} />
           </Field>
@@ -171,6 +178,12 @@ export default function AdminStorefront() {
           <Field label="Twitter / X URL"><Input data-testid="social-twitter-input" placeholder="https://x.com/…" value={s.social?.twitter || ""} onChange={(e) => setNested("social", "twitter", e.target.value)} /></Field>
           <Field label="Facebook URL"><Input data-testid="social-facebook-input" placeholder="https://facebook.com/…" value={s.social?.facebook || ""} onChange={(e) => setNested("social", "facebook", e.target.value)} /></Field>
           <Field label="TikTok URL"><Input data-testid="social-tiktok-input" placeholder="https://tiktok.com/@…" value={s.social?.tiktok || ""} onChange={(e) => setNested("social", "tiktok", e.target.value)} /></Field>
+          <Field label="WhatsApp link" hint="https://wa.me/1234567890">
+            <div className="relative">
+              <MessageCircle size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary" />
+              <Input data-testid="social-whatsapp-input" placeholder="https://wa.me/…" value={s.social?.whatsapp || ""} onChange={(e) => setNested("social", "whatsapp", e.target.value)} className="pl-9" />
+            </div>
+          </Field>
         </div>
       </Section>
 

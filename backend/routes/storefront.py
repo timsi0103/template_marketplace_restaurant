@@ -33,12 +33,15 @@ DEFAULT_STOREFRONT = {
         "twitter": "",
         "facebook": "",
         "tiktok": "",
+        "whatsapp": "",
     },
     "contact": {
         "email": "hello@culinaryeditorial.com",
         "phone": "+1 (555) 123-4567",
         "address": "12 Laurel Street, Brooklyn, NY",
     },
+    "cuisine_type": "Modern American · Seasonal",
+    "banner_image_url": "",
     "colors": {
         "primary": "#6E1C1E",
         "secondary": "#D4A456",
@@ -63,6 +66,8 @@ DEFAULT_REVIEWS = [
 class StorefrontPatch(BaseModel):
     brand_name: Optional[str] = None
     tagline: Optional[str] = None
+    cuisine_type: Optional[str] = None
+    banner_image_url: Optional[str] = None
     logo_url: Optional[str] = None
     favicon_url: Optional[str] = None
     hero: Optional[dict] = None
@@ -94,6 +99,8 @@ async def get_storefront_settings_public():
     s = await _get_storefront()
     return {
         "brand_name": s["brand_name"], "tagline": s["tagline"],
+        "cuisine_type": s.get("cuisine_type", ""),
+        "banner_image_url": s.get("banner_image_url", ""),
         "logo_url": s.get("logo_url", ""), "favicon_url": s.get("favicon_url", ""),
         "hero": s["hero"], "about": s["about"], "social": s["social"],
         "contact": s["contact"], "colors": s["colors"], "seo": s["seo"],

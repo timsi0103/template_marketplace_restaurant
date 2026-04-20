@@ -1,0 +1,31 @@
+{
+  "summary": "Full backend + frontend validation of Store Profile & Branding (iteration 26). 23/23 pytest passing (uploads round-trip to Emergent Object Storage, file proxy, soft delete, locations CRUD with is_primary demotion, GBP mocked cycle, profile-completion, storefront deep-merge incl. cuisine_type/banner_image_url/social.whatsapp). Playwright e2e verified /admin/store-profile page (CompletionCard 59% / 22 items, LocationsCard add→edit→delete, GoogleBusinessCard connect→sync→disconnect, BrandingPreviewCard receipt+email tabs) and /admin/storefront (cuisine-type-input, social-whatsapp-input, all FileUploaders). Actually uploaded a PNG via upload-logo-input → preview rendered and 'Uploaded' toast shown.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_store_profile_uploads.py",
+    "/app/test_reports/pytest/iteration_26_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "uploads.py MAX_UPLOAD_BYTES=6MB check happens after full read into memory — fine at 6MB but should use streaming / Content-Length header guard if limit grows.",
+    "uploads.py PUT to object storage issues requests.put synchronously inside async handler — blocks event loop on large uploads. Consider httpx.AsyncClient or asyncio.to_thread.",
+    "store_profile.py profile-completion recomputes storefront merge on every request — consider short TTL cache for /admin pages polling every 30s.",
+    "AdminStoreProfile.js LocationsCard hours field is a raw JSON textarea — not user-friendly; consider structured day/time inputs in a follow-up.",
+    "GBP 'MOCKED' banner is visible but synced_fields always appends 'menu_link' even when storefront has no menu/brand — minor: worth only when storefront has items."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_store_profile_uploads.py (NEW)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Test run creates+deletes a location ('TEST Downtown'), uploads+soft-deletes a PNG, connects+disconnects GBP. All cleaned up by tests themselves. Final state: storefront PATCH restore executed; GBP disconnected; no residual locations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/test_store_profile_uploads.py covers all uploads, locations, GBP mock, profile-completion, and storefront extensions. Use REACT_APP_BACKEND_URL env var when running pytest. Emergent Object Storage is live (no delete API — soft-delete via Mongo). GBP is fully mocked.",
+  "rca of the issue": "N/A — no issues found."
+}
