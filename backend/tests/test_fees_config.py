@@ -382,3 +382,253 @@ class TestTaxReport:
         assert "Totals" in body
         assert "By category" in body
         assert "effective_rate_pct" in body
+
+
+# ─── BUG FIX 1: _deep_merge + _REPLACE_KEYS ───────────────
+
+class TestDeepMergeReplaceKeys:
+    """After BUG FIX 1, PATCH with category_overrides:{} or item_overrides:{} must clear."""
+
+    def test_patch_can_clear_category_overrides(self, admin_session, default_region):
+        rid = default_region["id"]
+        # Seed with some overrides
+        r1 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"category_overrides": {"desserts": 5.0, "mains": 20.0}}},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["tax"]["category_overrides"] == {"desserts": 5.0, "mains": 20.0}
+        # Now clear with {}
+        r2 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"category_overrides": {}}},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["tax"]["category_overrides"] == {}
+        # Verify persisted via GET
+        r3 = admin_session.get(f"{BASE_URL}/api/admin/fees/regions")
+        got = next(x for x in r3.json()["regions"] if x["id"] == rid)
+        assert got["tax"]["category_overrides"] == {}
+
+    def test_patch_can_clear_item_overrides(self, admin_session, default_region):
+        rid = default_region["id"]
+        r1 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"item_overrides": {"itm_x": 0.0, "itm_y": 3.0}}},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["tax"]["item_overrides"] == {"itm_x": 0.0, "itm_y": 3.0}
+        r2 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"item_overrides": {}}},
+        )
+        assert r2.status_code == 200
+        assert r2.json()["tax"]["item_overrides"] == {}
+
+    def test_patch_individual_override_still_works(self, admin_session, default_region):
+        rid = default_region["id"]
+        # start clean
+        admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"category_overrides": {}}},
+        )
+        # add one
+        r1 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"category_overrides": {"desserts": 5.0}}},
+        )
+        assert r1.json()["tax"]["category_overrides"] == {"desserts": 5.0}
+        # cleanup
+        admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"tax": {"category_overrides": {}}},
+        )
+
+    def test_patch_tiers_list_replace_still_works(self, admin_session, default_region):
+        rid = default_region["id"]
+        r1 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"delivery_rules": {"tiers": [{"min_subtotal": 50, "fee": 2.0}]}},
+        )
+        assert r1.status_code == 200
+        assert r1.json()["delivery_rules"]["tiers"] == [{"min_subtotal": 50, "fee": 2.0}]
+        # empty list clears
+        r2 = admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{rid}",
+            json={"delivery_rules": {"tiers": []}},
+        )
+        assert r2.json()["delivery_rules"]["tiers"] == []
+
+
+# ─── BUG FIX 2: /fees/quote region_override for live preview ───
+
+class TestQuoteRegionOverride:
+    def test_override_tax_rate_not_persisted(self):
+        """Sending region_override with tax.rate_pct=20 returns 20% even though stored is 8.75."""
+        r = requests.post(
+            f"{BASE_URL}/api/fees/quote",
+            json={
+                "items": [{"name": "A", "price": 100.0, "qty": 1}],
+                "fulfillment_type": "pickup",
+                "region_override": {"tax": {"rate_pct": 20.0, "name": "LIVE"}},
+            },
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert data["subtotal"] == 100.0
+        assert round(data["tax"], 2) == 20.0
+        assert data["region"]["tax_name"] == "LIVE"
+
+    def test_override_service_charge_enabled(self):
+        """Live-preview toggling service charge returns the override result immediately."""
+        r = requests.post(
+            f"{BASE_URL}/api/fees/quote",
+            json={
+                "items": [{"name": "A", "price": 100.0, "qty": 1}],
+                "fulfillment_type": "pickup",
+                "region_override": {
+                    "tax": {"rate_pct": 20.0, "name": "LIVE"},
+                    "service_charge": {"enabled": True, "type": "percent", "amount": 10},
+                },
+            },
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert round(data["tax"], 2) == 20.0
+        assert round(data["service_charge"], 2) == 10.0
+        # 100 subtotal + 20 tax + 10 svc = 130
+        assert round(data["total"], 2) == 130.0
+
+    def test_override_tax_inclusive_flip(self):
+        """Flipping inclusive=true at preview time: total stays ~same (gross already includes tax)."""
+        # Non-inclusive baseline: 100 subtotal + 10 tax = 110
+        r1 = requests.post(
+            f"{BASE_URL}/api/fees/quote",
+            json={
+                "items": [{"name": "A", "price": 100.0, "qty": 1}],
+                "fulfillment_type": "pickup",
+                "region_override": {"tax": {"rate_pct": 10.0, "inclusive": False}},
+            },
+        )
+        d1 = r1.json()
+        assert round(d1["subtotal"], 2) == 100.0
+        assert round(d1["tax"], 2) == 10.0
+        assert round(d1["total"], 2) == 110.0
+        # Inclusive: 100 gross -> net 90.91, tax 9.09, total 100
+        r2 = requests.post(
+            f"{BASE_URL}/api/fees/quote",
+            json={
+                "items": [{"name": "A", "price": 100.0, "qty": 1}],
+                "fulfillment_type": "pickup",
+                "region_override": {"tax": {"rate_pct": 10.0, "inclusive": True}},
+            },
+        )
+        d2 = r2.json()
+        assert round(d2["total"], 2) == 100.0
+        assert round(d2["subtotal"] + d2["tax"], 2) == 100.0
+
+    def test_override_does_not_persist(self, admin_session, default_region):
+        """Sending an override must not alter the stored region."""
+        rid = default_region["id"]
+        r = admin_session.get(f"{BASE_URL}/api/admin/fees/regions")
+        before = next(x for x in r.json()["regions"] if x["id"] == rid)
+        assert float(before["tax"]["rate_pct"]) == 8.75
+        # Fire a quote with override
+        requests.post(
+            f"{BASE_URL}/api/fees/quote",
+            json={
+                "items": [{"name": "A", "price": 100.0, "qty": 1}],
+                "fulfillment_type": "pickup",
+                "region_override": {"tax": {"rate_pct": 99.0}},
+            },
+        )
+        r2 = admin_session.get(f"{BASE_URL}/api/admin/fees/regions")
+        after = next(x for x in r2.json()["regions"] if x["id"] == rid)
+        assert float(after["tax"]["rate_pct"]) == 8.75
+
+
+# ─── create_region deepcopy isolation ─────────────────────
+
+class TestCreateRegionDeepCopy:
+    def test_mutating_new_region_does_not_affect_default(self, admin_session, created_region_ids):
+        # Create new region
+        r = admin_session.post(
+            f"{BASE_URL}/api/admin/fees/regions",
+            json={"name": "TEST_ISOLATE", "region_code": "TEST_iso"},
+        )
+        assert r.status_code == 200
+        new_rid = r.json()["id"]
+        created_region_ids.append(new_rid)
+        # Mutate nested tax on the new region
+        admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{new_rid}",
+            json={"tax": {"rate_pct": 33.3, "category_overrides": {"zzz": 99.0}}},
+        )
+        # Fetch default — must NOT be mutated
+        r2 = admin_session.get(f"{BASE_URL}/api/admin/fees/regions")
+        default = next(x for x in r2.json()["regions"] if x.get("is_default"))
+        assert float(default["tax"]["rate_pct"]) == 8.75
+        assert default["tax"]["category_overrides"] == {}
+
+
+# ─── Tax Report with inclusive tax ────────────────────────
+
+class TestTaxReportInclusive:
+    def test_inclusive_tax_taxable_base_is_net(self, admin_session, created_region_ids):
+        """With inclusive tax, taxable_base must be the net (gross/(1+rate)), not gross."""
+        from pymongo import MongoClient
+        from datetime import datetime, timezone
+        import os as _os
+
+        mongo_url = _os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        db_name = _os.environ.get("DB_NAME", "test_database")
+        client = MongoClient(mongo_url)
+        db = client[db_name]
+
+        # Create an inclusive region at 8%
+        r = admin_session.post(
+            f"{BASE_URL}/api/admin/fees/regions",
+            json={"name": "TEST_INC", "region_code": "TEST_inc"},
+        )
+        assert r.status_code == 200
+        inc_rid = r.json()["id"]
+        created_region_ids.append(inc_rid)
+        admin_session.patch(
+            f"{BASE_URL}/api/admin/fees/regions/{inc_rid}",
+            json={"tax": {"inclusive": True, "rate_pct": 8.0, "category_overrides": {}}},
+        )
+
+        # Insert an order manually: $108 subtotal @ 8% inclusive -> net $100, tax $8
+        order_id = "TEST_inc_order_1"
+        now_iso = datetime.now(timezone.utc).isoformat()
+        db.orders.delete_many({"id": order_id})
+        db.orders.insert_one({
+            "id": order_id,
+            "payment_status": "paid",
+            "created_at": now_iso,
+            "subtotal": 108.0,
+            "tax": 8.0,
+            "items": [{
+                "category": "mains",
+                "qty": 1,
+                "price": 108.0,
+            }],
+        })
+
+        try:
+            rr = admin_session.get(
+                f"{BASE_URL}/api/admin/fees/tax-report",
+                params={"region_id": inc_rid},
+            )
+            assert rr.status_code == 200
+            body = rr.text
+            # Find the 'mains' row line — qty 1, taxable_base should be 100.00 (not 108.00)
+            lines = [ln for ln in body.splitlines() if ln.startswith("mains,")]
+            assert lines, f"No 'mains' row in CSV:\n{body}"
+            parts = lines[0].split(",")
+            # category, qty, taxable_base, effective_rate_pct, tax_collected
+            taxable_base = float(parts[2])
+            assert abs(taxable_base - 100.0) < 0.01, f"taxable_base={taxable_base}, expected 100.00"
+        finally:
+            db.orders.delete_many({"id": order_id})
+            client.close()

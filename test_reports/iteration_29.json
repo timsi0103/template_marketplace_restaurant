@@ -1,0 +1,25 @@
+{
+  "summary": "Retest of iteration_28 bug fixes for Tax & Service Charge Configuration. Both fixes VERIFIED and all regressions pass. Backend: 29/29 pytest cases pass (19 original + 10 new). New tests added for (a) _deep_merge + _REPLACE_KEYS clearing of tax.category_overrides/item_overrides via PATCH {}; (b) individual override keys still add/update; (c) delivery_rules.tiers list replacement still works; (d) /fees/quote region_override (tax rate, service_charge toggle, inclusive flip, non-persistence check); (e) create_region deepcopy isolation (mutating new region's tax rate/category_overrides does not affect default region); (f) tax-report CSV with inclusive tax — seeded a $108 order @ 8% inclusive and confirmed taxable_base=100.00 (not 108.00). Frontend: Playwright verified on /admin/fees against preview URL — (1) editing tax-rate-input 8.75→15 updates preview-tax $6.12→$10.50 and total $81.11→$85.49 within ~1s with NO Save click; (2) toggling service-enabled-switch with amount=10 makes preview-service render $7.00 (10% of $70 subtotal) and total becomes $88.11 without saving; (3) flipping tax-inclusive-switch at 10% changes subtotal $70.00→$63.64 and tax $7.00→$6.37 live. Default region restored to baseline after tests: Sales Tax 8.75%, inclusive=false, no overrides, service/packaging/eco disabled, delivery flat 4.99, min_order 0.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_fees_config.py",
+    "/app/test_reports/pytest/iteration_29_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminFees.js ChargeFields uses testIdPrefix='service' (not 'service-charge'); resulting testids are 'service-enabled-switch'/'service-amount-input'. Consistent and working, just note for future selector docs.",
+    "AdminFees.js at ~556 lines remains close to the 700-line guideline — splitting TaxSection, DeliverySection, ChargeSection, CheckoutPreview, TaxReportCard into separate files would improve maintainability (pre-existing, not introduced by this fix).",
+    "routes/fees.py _deep_merge now correctly handles *_overrides via _REPLACE_KEYS. If more leaf-dict fields are added later (e.g., tax.surcharges), remember to extend _REPLACE_KEYS.",
+    "routes/fees.py /fees/quote region_override is a raw Dict[str, Any] — a malicious/buggy client could inject unexpected keys; harmless because _get_region only reads known paths, but consider a Pydantic model to validate the override shape for defense-in-depth.",
+    "routes/fees.py tax_report inclusive-correction now uses line_base = gross/(1+rate/100); effective_rate reporting still uses category rate, which is correct."
+  ],
+  "updated_files": ["/app/backend/tests/test_fees_config.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123!",
+  "seed_data_creation": "TestTaxReportInclusive seeds a temporary order (id=TEST_inc_order_1) directly via pymongo and deletes it in finally. TEST_EU, TEST_DEL, TEST_ISOLATE, TEST_INC regions created and torn down by the module-scoped cleanup fixture. Default region verified baseline after full run.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both fixes from iteration_28 are verified. test_fees_config.py now has 29 tests covering region CRUD, pricing quote (including region_override live-preview path), deep-merge override clearing, create_region deepcopy isolation, and inclusive-tax CSV accounting. Sample cart in CheckoutPreview = 1x Heritage Duck Breast ($42) + 2x Hazelnut Ganache Tart ($14) = $70 subtotal; per-item overrides use ids 'itm_duck' / 'itm_tart'. Frontend testIdPrefix for charges are 'service' / 'packaging' / 'eco' (not 'service-charge-*').",
+  "rca of the issue": "Both bugs from iteration_28 were reproduced and now fixed — see /app/test_reports/iteration_28.json for original RCA. Fix validation: (1) _deep_merge signature now accepts replace_keys set; _REPLACE_KEYS={'category_overrides','item_overrides'}; PATCH {tax:{category_overrides:{}}} correctly replaces the dict to empty. (2) QuoteRequest.region_override is deep-merged (with the same _REPLACE_KEYS) onto the fetched region before pricing, so CheckoutPreview's snapshot drives live preview. create_region now uses copy.deepcopy so new regions don't share nested dict references with DEFAULT_REGION. tax_report divides by (1+rate/100) when region.tax.inclusive=true so taxable_base reports net, not gross."
+}

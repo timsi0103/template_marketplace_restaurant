@@ -408,13 +408,21 @@ function CheckoutPreview({ regionId, snapshot }) {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Keep the preview fresh whenever the admin edits the config
+  // Keep the preview fresh whenever the admin edits the config — send the unsaved snapshot
+  // as `region_override` so the preview reflects edits before Save.
   useEffect(() => {
     setLoading(true);
     axios.post(`${API}/fees/quote`, {
       items: SAMPLE_ITEMS,
       fulfillment_type: mode,
       region_id: regionId,
+      region_override: snapshot ? {
+        tax: snapshot.tax,
+        service_charge: snapshot.service_charge,
+        packaging_fee: snapshot.packaging_fee,
+        eco_fee: snapshot.eco_fee,
+        delivery_rules: snapshot.delivery_rules,
+      } : undefined,
       distance_km: distance,
       tip,
     }).then(({ data }) => setQuote(data))

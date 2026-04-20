@@ -16,6 +16,7 @@ from collections import defaultdict
 import io
 import csv
 import uuid
+import copy
 
 from core import api_router, db, require_admin
 
@@ -50,7 +51,7 @@ async def _ensure_default_region() -> dict:
     doc = await db.tax_regions.find_one({"is_default": True}, {"_id": 0})
     if doc:
         return doc
-    seed = dict(DEFAULT_REGION)
+    seed = copy.deepcopy(DEFAULT_REGION)
     seed["created_at"] = datetime.now(timezone.utc).isoformat()
     await db.tax_regions.insert_one(dict(seed))
     return seed
@@ -122,7 +123,7 @@ async def list_regions(request: Request):
 async def create_region(body: RegionCreate, request: Request):
     await require_admin(request)
     rid = f"reg_{uuid.uuid4().hex[:10]}"
-    doc = dict(DEFAULT_REGION)
+    doc = copy.deepcopy(DEFAULT_REGION)
     doc.update({"id": rid, "name": body.name, "region_code": body.region_code, "is_default": False,
                 "created_at": datetime.now(timezone.utc).isoformat()})
     if body.is_default:
@@ -132,13 +133,20 @@ async def create_region(body: RegionCreate, request: Request):
     return doc
 
 
-def _deep_merge(base: dict, patch: dict) -> dict:
+def _deep_merge(base: dict, patch: dict, replace_keys: Optional[set] = None) -> dict:
+    replace_keys = replace_keys or set()
     for k, v in patch.items():
-        if isinstance(v, dict) and isinstance(base.get(k), dict):
-            _deep_merge(base[k], v)
+        if k in replace_keys:
+            base[k] = v
+        elif isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v, replace_keys=replace_keys)
         else:
             base[k] = v
     return base
+
+
+# Fields whose dict value should REPLACE (not merge) — so sending {} clears them.
+_REPLACE_KEYS = {"category_overrides", "item_overrides"}
 
 
 @api_router.patch("/admin/fees/regions/{rid}")
@@ -152,7 +160,7 @@ async def patch_region(rid: str, body: RegionPatch, request: Request):
         raise HTTPException(status_code=400, detail="No changes")
     if patch.get("is_default"):
         await db.tax_regions.update_many({"id": {"$ne": rid}}, {"$set": {"is_default": False}})
-    merged = _deep_merge(dict(existing), patch)
+    merged = _deep_merge(dict(existing), patch, replace_keys=_REPLACE_KEYS)
     merged["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.tax_regions.update_one({"id": rid}, {"$set": merged})
     return await db.tax_regions.find_one({"id": rid}, {"_id": 0})
@@ -197,6 +205,7 @@ class QuoteRequest(BaseModel):
     items: List[QuoteItem]
     fulfillment_type: Literal["delivery", "pickup", "dine_in"] = "pickup"
     region_id: Optional[str] = None
+    region_override: Optional[Dict[str, Any]] = None  # unsaved config for live preview
     distance_km: Optional[float] = 0
     tip: float = 0
     promo_code: Optional[str] = None
@@ -244,6 +253,8 @@ async def _resolve_item_tax(region: dict, item: QuoteItem) -> float:
 @api_router.post("/fees/quote")
 async def pricing_quote(body: QuoteRequest):
     region = await _get_region(body.region_id)
+    if body.region_override:
+        region = _deep_merge(dict(region), body.region_override, replace_keys=_REPLACE_KEYS)
     tax_cfg = region["tax"]
     inclusive = bool(tax_cfg.get("inclusive"))
 
@@ -340,6 +351,7 @@ async def tax_report(
 
     by_category: dict = defaultdict(lambda: {"qty": 0, "taxable": 0.0, "tax": 0.0, "rate": 0.0})
     totals = {"subtotal": 0.0, "tax_collected": 0.0, "orders": 0}
+    inclusive = bool(region["tax"].get("inclusive"))
     for o in orders:
         totals["orders"] += 1
         totals["subtotal"] += float(o.get("subtotal") or 0)
@@ -348,13 +360,14 @@ async def tax_report(
             cat = it.get("category") or "uncategorized"
             qty = int(it.get("qty") or it.get("quantity") or 1)
             price = float(it.get("price") or 0)
-            # Resolve the effective rate (category override or default)
             rate = 0.0
             if region["tax"].get("category_overrides", {}).get(cat) is not None:
                 rate = float(region["tax"]["category_overrides"][cat])
             else:
                 rate = float(region["tax"].get("rate_pct") or 0)
-            line_base = qty * price
+            gross = qty * price
+            # If prices include tax, extract the net base; otherwise the line price IS the net.
+            line_base = round(gross / (1 + rate / 100), 2) if inclusive and rate else gross
             line_tax = round(line_base * rate / 100, 2)
             by_category[cat]["qty"] += qty
             by_category[cat]["taxable"] += line_base
