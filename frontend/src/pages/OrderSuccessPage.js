@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight, Mail, ChevronDown, ChevronUp, Printer } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import PostPurchaseAccountCreate from "@/components/checkout/PostPurchaseAccountCreate";
 
 const POLL_INTERVAL = 2000;
 const MAX_ATTEMPTS = 10;
@@ -9,6 +11,7 @@ export default function OrderSuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
   const orderIdParam = params.get("order_id");
+  const { user } = useAuth();
 
   const [state, setState] = useState({ loading: true, status: "pending", payment_status: "pending", order: null, error: "" });
   const [emailOpen, setEmailOpen] = useState(false);
@@ -186,6 +189,11 @@ export default function OrderSuccessPage() {
             <span data-testid="success-total" className="text-2xl font-bold text-brand-text">${(order.total || 0).toFixed(2)}</span>
           </div>
         </div>
+
+        {/* Post-purchase account creation (guests only) */}
+        {(!user?.email || user?.guest) && order.contact_email && !order.user_id && (
+          <PostPurchaseAccountCreate order={order} />
+        )}
 
         {/* Email receipt preview (collapsible) */}
         <div data-testid="email-preview-section" className="mt-6">

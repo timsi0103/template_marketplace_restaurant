@@ -119,7 +119,14 @@ export default function AdminOrders() {
                     <tr key={o.id} data-testid={`admin-order-row-${o.id}`} className="border-t border-brand-border">
                       <td className="p-3 font-mono text-xs">{o.order_number || o.id.slice(0, 6)}</td>
                       <td className="p-3"><span className="inline-flex items-center gap-1 text-xs"><Icon size={12} /> {o.fulfillment_type}</span></td>
-                      <td className="p-3 text-xs">{o.contact_name || o.contact_email || "—"}</td>
+                      <td className="p-3 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{o.contact_name || o.contact_email || "—"}</span>
+                          {!o.user_id && (
+                            <span data-testid={`admin-guest-badge-${o.id}`} className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[9px] font-body font-bold uppercase tracking-wider">Guest</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-3"><span className={`inline-block px-2 py-0.5 rounded text-[11px] font-semibold ${sm.cls}`}>{sm.label}</span></td>
                       <td className="p-3 text-xs">${(o.total || 0).toFixed(2)}</td>
                       <td className="p-3 text-xs whitespace-nowrap">{fmt(o.created_at)}</td>

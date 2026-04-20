@@ -147,6 +147,9 @@ export default function AdminNewOrdersPanel() {
                       <Icon size={14} className="text-brand-primary flex-shrink-0" />
                       <span className="font-heading text-sm font-bold text-brand-text">{o.order_number}</span>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-primary/10 text-brand-primary uppercase font-semibold tracking-wider">{(o.fulfillment_type || "").replace("_", "-")}</span>
+                      {!o.user_id && (
+                        <span data-testid={`incoming-guest-badge-${o.id}`} className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 uppercase font-bold tracking-wider">Guest</span>
+                      )}
                     </div>
                     <div className="font-body text-[11px] text-brand-text-secondary truncate">
                       {o.contact_name || o.contact_email} · {o.items?.length || 0} item{(o.items?.length || 0) > 1 ? "s" : ""} · ${(o.total || 0).toFixed(2)}

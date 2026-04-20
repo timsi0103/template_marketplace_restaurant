@@ -109,7 +109,12 @@ export default function OrderCard({
           )}
           <div>
             <div className="font-heading text-base font-bold text-brand-text">{order.order_number || order.id.slice(0, 6)}</div>
-            <div className="text-xs text-brand-text-secondary">{order.contact_name || order.contact_email || "Guest"}</div>
+            <div className="text-xs text-brand-text-secondary flex items-center gap-1.5 flex-wrap">
+              {order.contact_name || order.contact_email || "Guest"}
+              {!order.user_id && (
+                <span data-testid={`guest-badge-${order.id}`} className="px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[9px] font-body font-bold uppercase tracking-wider">Guest</span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex flex-col items-end">

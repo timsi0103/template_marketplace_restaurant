@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,11 +8,16 @@ import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
 export default function LoginPage() {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const [sp] = useSearchParams();
+  const redirectTo = sp.get("redirect") || "/";
+  const prefilledEmail = sp.get("email") || "";
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { if (prefilledEmail) setEmail(prefilledEmail); }, [prefilledEmail]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,7 +26,7 @@ export default function LoginPage() {
     const result = await login(email, password);
     setSubmitting(false);
     if (result.success) {
-      navigate("/");
+      navigate(redirectTo);
     } else {
       setError(result.error);
     }
