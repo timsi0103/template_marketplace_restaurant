@@ -20,20 +20,31 @@ export default function AdminItemForm() {
   const { id } = useParams();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState({ name: "", description: "", price: "", category: "mains", status: "in_stock", tags: "", images: [] });
+  const [form, setForm] = useState({ name: "", description: "", price: "", category: "mains", subcategory: "", status: "in_stock", tags: "", images: [] });
   const [imageUrl, setImageUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loadingItem, setLoadingItem] = useState(isEdit);
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
+  const [subcategoryOptions, setSubcategoryOptions] = useState([]);
+
+  // Fetch subcategories matching selected category
+  useEffect(() => {
+    fetch(`${API_BASE}/categories/tree`).then((r) => r.json()).then((d) => {
+      const parent = (d.categories || []).find((c) => c.slug === form.category);
+      setSubcategoryOptions(parent?.subcategories || []);
+    }).catch(() => setSubcategoryOptions([]));
+  }, [form.category]);
 
   useEffect(() => {
     if (isEdit) {
       axios.get(`${API_BASE}/menu/items/${id}`, { withCredentials: true })
         .then(({ data }) => setForm({
           name: data.name || "", description: data.description || "", price: String(data.price || ""),
-          category: data.category || "mains", status: data.status || "in_stock", tags: (data.tags || []).join(", "),
+          category: data.category || "mains",
+          subcategory: data.subcategory || "",
+          status: data.status || "in_stock", tags: (data.tags || []).join(", "),
           images: data.images || (data.image ? [data.image] : []),
         }))
         .catch(() => setError("Failed to load item"))
@@ -82,7 +93,9 @@ export default function AdminItemForm() {
     setSaving(true);
     const payload = {
       name: form.name.trim(), description: form.description.trim(), price: parseFloat(form.price),
-      category: form.category, status: form.status,
+      category: form.category,
+      subcategory: form.subcategory || null,
+      status: form.status,
       tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
       images: form.images, image: form.images[0] || "",
     };
@@ -121,11 +134,30 @@ export default function AdminItemForm() {
           </div>
           <div>
             <Label className="font-body text-[10px] uppercase tracking-widest text-brand-text-secondary mb-1.5">Category</Label>
-            <Select value={form.category} onValueChange={(v) => setForm(p => ({ ...p, category: v }))}>
+            <Select value={form.category} onValueChange={(v) => setForm(p => ({ ...p, category: v, subcategory: "" }))}>
               <SelectTrigger data-testid="select-category" className="bg-brand-bg border-brand-border font-body text-sm h-11"><SelectValue /></SelectTrigger>
               <SelectContent>{CATEGORIES.map(c => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div>
+          <Label className="font-body text-[10px] uppercase tracking-widest text-brand-text-secondary mb-1.5">Subcategory (optional)</Label>
+          <Select
+            value={form.subcategory || "none"}
+            onValueChange={(v) => setForm(p => ({ ...p, subcategory: v === "none" ? "" : v }))}
+            disabled={subcategoryOptions.length === 0}
+          >
+            <SelectTrigger data-testid="select-subcategory" className="bg-brand-bg border-brand-border font-body text-sm h-11">
+              <SelectValue placeholder={subcategoryOptions.length === 0 ? "No subcategories for this category" : "Select subcategory"} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              {subcategoryOptions.map((s) => (
+                <SelectItem key={s.slug} value={s.slug} className="capitalize">{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="grid grid-cols-2 gap-5">
           <div>

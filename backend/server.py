@@ -161,6 +161,7 @@ class MenuItemCreate(BaseModel):
     description: str = ""
     price: float
     category: str = "mains"
+    subcategory: Optional[str] = None
     image: str = ""
     images: List[str] = []
     tags: List[str] = []
@@ -172,6 +173,7 @@ class MenuItemUpdate(BaseModel):
     description: Optional[str] = None
     price: Optional[float] = None
     category: Optional[str] = None
+    subcategory: Optional[str] = None
     image: Optional[str] = None
     images: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -394,10 +396,12 @@ async def health_check():
     return {"status": "healthy"}
 
 @api_router.get("/menu/items")
-async def get_menu_items(category: Optional[str] = None):
+async def get_menu_items(category: Optional[str] = None, subcategory: Optional[str] = None):
     query = {}
     if category and category != "all":
         query["category"] = category
+    if subcategory and subcategory != "all":
+        query["subcategory"] = subcategory
     items = await db.menu_items.find(query, {"_id": 0}).to_list(200)
     return {"items": items, "count": len(items)}
 
@@ -1831,6 +1835,28 @@ async def startup():
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
     logger.info(f"Promo codes seeded (total in DB after seed: {await db.promo_codes.count_documents({})})")
+
+    # Backfill: assign random subcategory to items that don't have one yet
+    try:
+        import random as _r
+        parents = await db.categories.find({"parent_id": None}, {"_id": 0, "id": 1, "slug": 1}).to_list(200)
+        for p in parents:
+            subs = await db.categories.find(
+                {"parent_id": p["id"], "visible": {"$ne": False}},
+                {"_id": 0, "slug": 1, "name": 1},
+            ).to_list(50)
+            if not subs:
+                continue
+            needing = await db.menu_items.find(
+                {"category": p["slug"], "$or": [{"subcategory": {"$exists": False}}, {"subcategory": None}, {"subcategory": ""}]},
+                {"_id": 0, "id": 1},
+            ).to_list(500)
+            for item in needing:
+                choice = _r.choice(subs)["slug"]
+                await db.menu_items.update_one({"id": item["id"]}, {"$set": {"subcategory": choice}})
+        logger.info("Backfilled subcategories on existing menu items (if missing)")
+    except Exception as e:
+        logger.warning(f"Subcategory backfill skipped: {e}")
 
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)

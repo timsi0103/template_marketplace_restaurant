@@ -36,6 +36,17 @@ export default function CategoryLandingPage() {
     load();
   }, [slug]);
 
+  // Re-fetch when subcategory changes
+  useEffect(() => {
+    if (!slug) return;
+    const params = new URLSearchParams({ category: slug });
+    if (activeSub && activeSub !== "all") params.set("subcategory", activeSub);
+    fetch(`${API_BASE}/menu/items?${params.toString()}`)
+      .then((r) => r.json())
+      .then((d) => setItems(d.items || []))
+      .catch(() => {});
+  }, [activeSub, slug]);
+
   const handleAdd = (e, item) => {
     e.preventDefault();
     e.stopPropagation();

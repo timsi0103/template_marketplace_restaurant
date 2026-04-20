@@ -45,9 +45,12 @@ export default function MenuPage() {
 
   useEffect(() => {
     setLoading(true);
-    const url = activeCategory === "all" ? `${API_BASE}/menu/items` : `${API_BASE}/menu/items?category=${activeCategory}`;
+    const params = new URLSearchParams();
+    if (activeCategory !== "all") params.set("category", activeCategory);
+    if (activeSubcategory) params.set("subcategory", activeSubcategory);
+    const url = `${API_BASE}/menu/items${params.toString() ? `?${params.toString()}` : ""}`;
     fetch(url).then(r => r.json()).then(d => setItems(d.items || [])).catch(() => setItems([])).finally(() => setLoading(false));
-  }, [activeCategory]);
+  }, [activeCategory, activeSubcategory]);
 
   const handleCategoryClick = (slug) => {
     if (slug !== activeCategory) {
