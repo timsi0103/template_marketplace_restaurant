@@ -1,0 +1,22 @@
+{
+  "summary": "Phase 35 (Staff Accounts & Role-Based Access) end-to-end validation. Backend pytest suite test_staff_roles.py: 24 passed, 1 skipped (test_staff_self_deactivate_blocked — expected because seeded admin lacks is_staff=True; documented by main agent). Frontend e2e covers /admin/staff (load + invite dialog with MOCKED EMAIL badge + send invitation → Copy link + pending row), /admin/roles (6 pre-defined cards + 2 custom + Permission matrix tab + Read-only badge), /admin/staff/{id} (profile with role badge, activity summary, 8-area permission grid w/ view/edit/approve chips, activity log), /accept-invite/{token} (pending: form pre-filled w/ email+name+role; unknown: Invitation not found state). Sidebar shows new Staff (UserCog) + Roles (Shield) entries alongside the existing 25 items. MOCKED-email contract verified: POST /api/admin/staff/invite returns mocked_email:true, accept_url=/accept-invite/<token>, expires_at=+7d.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_staff_roles.py",
+    "/app/test_reports/pytest/iteration_34_staff_roles.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminStaff.js line 101 + 220 use navigator.clipboard.writeText without try/catch — will silently throw on insecure contexts; consider a fallback toast.error.",
+    "backend/routes/staff.py invite_staff() uses request.headers.get('origin') with fallback to request.base_url. Behind the Cloudflare/Kubernetes ingress, base_url resolves to *.internal.preview.emergentagent.com when Origin header is absent (e.g. server-to-server). Browser-originated calls work correctly; non-browser callers see an internal URL in accept_url. Low priority — only impacts manual curl smoke tests."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "96% (24/25, 1 expected skip)", "frontend": "100% on tested flows"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123! (per /app/memory/test_credentials.md)",
+  "seed_data_creation": "Two pending invites created during test (smoke_12749@x.com, acceptui_10301@x.com, uitest_<ts>@example.com) and one pre-existing accepted user user_fede98a0fcdf used for profile-page check. Cleanup not performed — test_staff_roles.py fixture cleans its own artefacts; manual curl invites remain visible in pending list (low priority cosmetic).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Phase 35 verified passing. Frontend cookie-based auth means pytest sets REACT_APP_BACKEND_URL env var explicitly when running test_staff_roles.py. Login redirect goes to / (homepage) not /admin — directly navigate to /admin/staff after login. Public accept-invite page has 401/404 console noise from cart/orders endpoints because the page renders for anonymous users; not a bug.",
+  "rca of the issue": "N/A — no bugs uncovered. The single skipped pytest case (test_staff_self_deactivate_blocked) is intentional: the seeded admin is created in users collection without is_staff=True, so the staff PATCH endpoint correctly 404s rather than reaching the self-deactivate guard. This is consistent with the documented design where Owner-equivalent admin uses require_admin and isn't surfaced in /api/admin/staff list."
+}

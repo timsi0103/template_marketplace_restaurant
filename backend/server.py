@@ -31,6 +31,7 @@ import routes.fees            # noqa: F401
 import routes.daily_summary   # noqa: F401
 import routes.seo             # noqa: F401
 import routes.order_modification  # noqa: F401
+import routes.staff            # noqa: F401
 
 from seed import run_startup_seed
 

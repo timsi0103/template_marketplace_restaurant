@@ -58,6 +58,10 @@ import AdminFees from "@/pages/admin/AdminFees";
 import AdminDailySummary from "@/pages/admin/AdminDailySummary";
 import AdminSEO from "@/pages/admin/AdminSEO";
 import AdminCancellations from "@/pages/admin/AdminCancellations";
+import AdminStaff from "@/pages/admin/AdminStaff";
+import AdminStaffProfile from "@/pages/admin/AdminStaffProfile";
+import AdminRoles from "@/pages/admin/AdminRoles";
+import AcceptInvitePage from "@/pages/AcceptInvitePage";
 import { useStorefront } from "@/hooks/useStorefront";
 
 function AppRouter() {
@@ -89,6 +93,7 @@ function AppRouter() {
           <Route path="/kds/:station" element={<KDSBoard />} />
           <Route path="/receipt/:order_id" element={<ReceiptPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
           <Route path="/admin/ticket/:order_id" element={<KitchenTicketPage />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
@@ -122,6 +127,9 @@ function AppRouter() {
             <Route path="daily-summary" element={<AdminDailySummary />} />
             <Route path="seo" element={<AdminSEO />} />
             <Route path="cancellations" element={<AdminCancellations />} />
+            <Route path="staff" element={<AdminStaff />} />
+            <Route path="staff/:userId" element={<AdminStaffProfile />} />
+            <Route path="roles" element={<AdminRoles />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />
