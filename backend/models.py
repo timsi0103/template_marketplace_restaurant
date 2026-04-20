@@ -134,6 +134,7 @@ class HolidayCreate(BaseModel):
     date: str
     reason: str = ""
     all_day: bool = True
+    message: Optional[str] = ""  # Customer-facing message shown on that date
 
 
 # ─── Orders ───────────────────────────────────────────────

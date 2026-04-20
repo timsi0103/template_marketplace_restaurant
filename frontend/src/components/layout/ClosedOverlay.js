@@ -30,10 +30,30 @@ export default function ClosedOverlay() {
         </div>
 
         <h2 data-testid="closed-heading" className="font-heading text-3xl sm:text-4xl font-bold text-brand-text tracking-tight mb-3">
-          {status.active_holiday?.reason || "We'll Be Back Soon"}
+          {status.pause_ordering ? "Ordering is paused" : status.active_holiday?.reason || "We'll Be Back Soon"}
         </h2>
 
-        {status.next_open && (
+        {status.active_holiday?.message && (
+          <p data-testid="holiday-message" className="font-body text-sm text-brand-text-secondary mb-4 max-w-sm mx-auto leading-relaxed">
+            {status.active_holiday.message}
+          </p>
+        )}
+
+        {status.pause_ordering && status.pause_reason && (
+          <p data-testid="pause-reason" className="font-body text-sm text-brand-text-secondary mb-2">
+            {status.pause_reason}
+          </p>
+        )}
+        {status.pause_ordering && status.pause_until && (
+          <p data-testid="pause-until" className="font-body text-xs text-brand-text-secondary mb-4">
+            Estimated reopen:{" "}
+            <span className="font-semibold text-brand-text">
+              {new Date(status.pause_until).toLocaleString()}
+            </span>
+          </p>
+        )}
+
+        {status.next_open && !status.pause_ordering && (
           <p data-testid="next-open-time" className="font-body text-sm text-brand-text-secondary mb-6">
             Next service opens <span className="font-semibold text-brand-text">{status.next_open}</span>
           </p>
@@ -69,10 +89,12 @@ export default function ClosedOverlay() {
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface border border-brand-border text-brand-text font-body text-sm font-medium rounded-full hover:bg-brand-bg transition-colors">
             <UtensilsCrossed size={16} /> Browse Menu
           </Link>
-          <button data-testid="order-later-btn"
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover transition-colors">
-            <CalendarClock size={16} /> Order for Later
-          </button>
+          {status.accept_advance_orders !== false && (
+            <button data-testid="order-later-btn"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover transition-colors">
+              <CalendarClock size={16} /> Order for Later
+            </button>
+          )}
         </div>
       </div>
     </div>
