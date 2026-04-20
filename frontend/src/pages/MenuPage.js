@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, ChevronDown, LayoutGrid, List } from "lucide-react";
+import { Plus, LayoutGrid, List } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 
 const API_BASE = "/api";
@@ -33,22 +33,14 @@ export default function MenuPage() {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSubcategory, setActiveSubcategory] = useState(null);
-  const [showSubDropdown, setShowSubDropdown] = useState(false);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState("list");
   const { addItem } = useCart();
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/categories/tree`).then(r => r.json()).then(d => setCategories(d.categories || [])).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    const handler = (e) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setShowSubDropdown(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   useEffect(() => {
@@ -58,9 +50,9 @@ export default function MenuPage() {
   }, [activeCategory]);
 
   const handleCategoryClick = (slug) => {
-    if (slug === activeCategory && slug !== "all") { setShowSubDropdown(!showSubDropdown); }
-    else { setActiveCategory(slug); setActiveSubcategory(null); setShowSubDropdown(false);
-      if (slug !== "all") { const cat = categories.find(c => c.slug === slug); if (cat?.subcategories?.length > 0) setShowSubDropdown(true); }
+    if (slug !== activeCategory) {
+      setActiveCategory(slug);
+      setActiveSubcategory(null);
     }
   };
 
@@ -96,7 +88,7 @@ export default function MenuPage() {
         {categories.length > 0 && (
           <div data-testid="category-nav" className="mb-6 sm:mb-8">
             <div className="flex gap-3 sm:gap-4 overflow-x-auto hide-scrollbar scroll-snap-x pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              <button data-testid="category-all" onClick={() => { setActiveCategory("all"); setActiveSubcategory(null); setShowSubDropdown(false); }}
+              <button data-testid="category-all" onClick={() => { setActiveCategory("all"); setActiveSubcategory(null); }}
                 className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all ${activeCategory === "all" ? "" : "opacity-60 hover:opacity-100"}`}>
                 <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === "all" ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
                   <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center"><span className="font-heading text-xl sm:text-2xl font-bold text-brand-primary">All</span></div>
@@ -104,34 +96,23 @@ export default function MenuPage() {
                 <span className={`font-body text-[10px] sm:text-xs font-medium ${activeCategory === "all" ? "text-brand-text" : "text-brand-text-secondary"}`}>All</span>
               </button>
               {categories.filter(c => c.visible !== false).map((cat) => (
-                <div key={cat.id} className="relative" ref={activeCategory === cat.slug ? dropdownRef : null}>
-                  <button data-testid={`category-${cat.slug}`} onClick={() => handleCategoryClick(cat.slug)}
-                    className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all ${activeCategory === cat.slug ? "" : "opacity-60 hover:opacity-100"}`}>
-                    <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === cat.slug ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
-                      {cat.image ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-brand-bg flex items-center justify-center"><span className="font-heading text-lg font-bold text-brand-text-secondary">{cat.name.charAt(0)}</span></div>}
-                    </div>
-                    <div className="flex items-center gap-0.5">
-                      <span className={`font-body text-[10px] sm:text-xs font-medium ${activeCategory === cat.slug ? "text-brand-text" : "text-brand-text-secondary"}`}>{cat.name}</span>
-                      {cat.subcategories?.length > 0 && <ChevronDown size={10} className={`text-brand-text-secondary transition-transform ${activeCategory === cat.slug && showSubDropdown ? "rotate-180" : ""}`} />}
-                    </div>
-                  </button>
-                  {activeCategory === cat.slug && showSubDropdown && subcategories.length > 0 && (
-                    <div data-testid={`subcategory-dropdown-${cat.slug}`} className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-brand-surface border border-brand-border rounded-xl shadow-lg py-2 z-40 min-w-[160px]">
-                      <button data-testid={`sub-all-${cat.slug}`} onClick={() => { setActiveSubcategory(null); setShowSubDropdown(false); }} className={`w-full text-left px-4 py-2 font-body text-sm transition-colors ${!activeSubcategory ? "text-brand-primary font-semibold bg-brand-bg" : "text-brand-text hover:bg-brand-bg"}`}>All {cat.name}</button>
-                      {subcategories.map((sub) => (<button key={sub.id} data-testid={`sub-${sub.slug}`} onClick={() => { setActiveSubcategory(sub.slug); setShowSubDropdown(false); }} className={`w-full text-left px-4 py-2 font-body text-sm transition-colors ${activeSubcategory === sub.slug ? "text-brand-primary font-semibold bg-brand-bg" : "text-brand-text hover:bg-brand-bg"}`}>{sub.name}</button>))}
-                    </div>
-                  )}
-                </div>
+                <button key={cat.id} data-testid={`category-${cat.slug}`} onClick={() => handleCategoryClick(cat.slug)}
+                  className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all ${activeCategory === cat.slug ? "" : "opacity-60 hover:opacity-100"}`}>
+                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === cat.slug ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
+                    {cat.image ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-brand-bg flex items-center justify-center"><span className="font-heading text-lg font-bold text-brand-text-secondary">{cat.name.charAt(0)}</span></div>}
+                  </div>
+                  <span className={`font-body text-[10px] sm:text-xs font-medium ${activeCategory === cat.slug ? "text-brand-text" : "text-brand-text-secondary"}`}>{cat.name}</span>
+                </button>
               ))}
             </div>
           </div>
         )}
 
         {/* Subcategory pills */}
-        {subcategories.length > 0 && !showSubDropdown && (
+        {subcategories.length > 0 && (
           <div data-testid="subcategory-pills" className="mb-6 sm:mb-8">
             <div className="flex gap-2 overflow-x-auto hide-scrollbar scroll-snap-x">
-              <button onClick={() => setActiveSubcategory(null)} className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${!activeSubcategory ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}>All {activeCat?.name}</button>
+              <button data-testid={`pill-all-${activeCat?.slug}`} onClick={() => setActiveSubcategory(null)} className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${!activeSubcategory ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}>All {activeCat?.name}</button>
               {subcategories.map((sub) => (<button key={sub.id} data-testid={`pill-${sub.slug}`} onClick={() => setActiveSubcategory(sub.slug)} className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${activeSubcategory === sub.slug ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}>{sub.name}</button>))}
             </div>
           </div>
