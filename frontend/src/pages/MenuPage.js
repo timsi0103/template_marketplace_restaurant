@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Search as SearchIcon, X, SlidersHorizontal, Eye, LayoutGrid, List, ArrowUpDown } from "lucide-react";
+import { Plus, Search as SearchIcon, X, SlidersHorizontal, Eye, LayoutGrid, List, ArrowUpDown, Star } from "lucide-react";
 import axios from "axios";
 import { useCart } from "@/contexts/CartContext";
 import FilterDrawer from "@/components/menu/FilterDrawer";
@@ -452,6 +452,13 @@ function ItemCard({ item, viewMode, quickViewEnabled, onQuickView, onAdd }) {
       </div>
       <div className="p-3 sm:p-4 flex flex-col justify-center flex-1 min-w-0">
         <h3 className={`font-heading text-sm sm:text-base font-bold truncate sm:whitespace-normal ${isSoldOut ? "text-brand-text-secondary line-through" : "text-brand-text"}`}>{item.name}</h3>
+        {item.rating_count > 0 && (
+          <div data-testid={`menu-rating-${item.id}`} className="mt-1 inline-flex items-center gap-1 text-[11px] text-brand-text-secondary">
+            <Star size={11} className="fill-amber-400 text-amber-400" strokeWidth={1.5} />
+            <span className="font-semibold text-brand-text">{Number(item.rating_avg || 0).toFixed(1)}</span>
+            <span>({item.rating_count})</span>
+          </div>
+        )}
         <p className="font-body text-[10px] sm:text-xs text-brand-text-secondary mt-1 leading-relaxed line-clamp-2">{item.description}</p>
         {item.dietary_tags?.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">

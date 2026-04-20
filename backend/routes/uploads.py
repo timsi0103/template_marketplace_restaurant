@@ -57,21 +57,21 @@ def _get_object(path: str):
     return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
 
-@api_router.post("/admin/uploads")
-async def upload_file(request: Request, file: UploadFile = File(...), purpose: str = Form("misc")):
-    """Admin-only file upload. Returns {id, url, filename, size, content_type}.
-    `url` is a backend proxy path (publicly reachable via our domain) usable in <img src>."""
-    user = await require_admin(request)
+async def store_user_upload(*, file: UploadFile, uploader_id: str, purpose: str, max_bytes: int = MAX_UPLOAD_BYTES) -> dict:
+    """Validate, upload to object storage, persist record, return public {id,url,...} dict.
 
+    Shared by admin uploads and customer-facing review photo uploads. Caller is
+    responsible for authorizing the upload before invoking this helper.
+    """
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
     data = await file.read()
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
+    if len(data) > max_bytes:
+        raise HTTPException(status_code=413, detail=f"File too large (max {max_bytes // (1024*1024)} MB)")
 
     ext = (file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "bin").lower()
     file_id = f"up_{uuid.uuid4().hex[:12]}"
-    storage_path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4()}.{ext}"
+    storage_path = f"{APP_NAME}/uploads/{uploader_id}/{uuid.uuid4()}.{ext}"
     try:
         result = _put_object(storage_path, data, file.content_type)
     except Exception as e:
@@ -85,7 +85,7 @@ async def upload_file(request: Request, file: UploadFile = File(...), purpose: s
         "content_type": file.content_type,
         "size": result.get("size") or len(data),
         "purpose": purpose,
-        "uploaded_by": user["user_id"],
+        "uploaded_by": uploader_id,
         "is_deleted": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -99,6 +99,14 @@ async def upload_file(request: Request, file: UploadFile = File(...), purpose: s
         "content_type": record["content_type"],
         "purpose": purpose,
     }
+
+
+@api_router.post("/admin/uploads")
+async def upload_file(request: Request, file: UploadFile = File(...), purpose: str = Form("misc")):
+    """Admin-only file upload. Returns {id, url, filename, size, content_type}.
+    `url` is a backend proxy path (publicly reachable via our domain) usable in <img src>."""
+    user = await require_admin(request)
+    return await store_user_upload(file=file, uploader_id=user["user_id"], purpose=purpose)
 
 
 @api_router.get("/files/{file_id}")

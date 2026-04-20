@@ -8,7 +8,7 @@ import os
 import time
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL') or os.environ.get('FRONTEND_URL', 'https://food-delivery-hub-275.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL') or os.environ.get('FRONTEND_URL', 'https://restaurant-stack.preview.emergentagent.com')
 BASE_URL = BASE_URL.rstrip('/')
 
 @pytest.fixture(scope="module")

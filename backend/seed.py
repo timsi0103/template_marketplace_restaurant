@@ -178,3 +178,73 @@ async def run_startup_seed():
         f.write(f"- Email: {admin_email}\n- Password: {admin_password}\n- Role: admin\n\n")
         f.write("## Auth Endpoints\n- POST /api/auth/register\n- POST /api/auth/login\n- POST /api/auth/logout\n- GET /api/auth/me\n")
         f.write("## Menu Endpoints\n- GET /api/menu/items\n- GET /api/menu/items/:id\n- POST /api/admin/menu/items (admin)\n- PUT /api/admin/menu/items/:id (admin)\n- DELETE /api/admin/menu/items/:id (admin)\n- PATCH /api/admin/menu/items/:id/toggle (admin)\n")
+
+    # Seed review data (idempotent: only if empty)
+    if await db.reviews.count_documents({}) == 0:
+        await db.reviews.create_index("item_id")
+        await db.reviews.create_index("order_id")
+        now = datetime.now(timezone.utc)
+        from datetime import timedelta as _td
+        demo_reviews = [
+            ("item-001", 5, "Extraordinary — the cherry reduction paired beautifully with the duck. Will be back.", "Martine L.", 2, 4),
+            ("item-001", 4, "Perfectly cooked, though the parsnip could have used more seasoning.", "Jerome T.", 7, 2),
+            ("item-002", 5, "Best burrata in the city. Creamy, fresh, and the balsamic was a revelation.", "Celine R.", 1, 6),
+            ("item-002", 5, "I'd come back just for this.", "Anonymous", 3, 3),
+            ("item-004", 5, "Worth every penny. The crust is unreal.", "Dominic V.", 0, 8),
+            ("item-004", 2, "Crust was burnt on the edges, sauce overly salty. Disappointed for the price.", "Avery K.", 5, 1),
+            ("item-006", 5, "Truffle tagliatelle dreams. A once-a-season splurge.", "Liu W.", 4, 5),
+            ("item-006", 3, "Good flavor but the portion was smaller than expected.", "Noah P.", 6, 0),
+            ("item-009", 5, "Gorgeous presentation, melts in the mouth.", "Anonymous", 1, 2),
+        ]
+        docs = []
+        for item_id, rating, text, name, days_ago, helpful in demo_reviews:
+            when = (now - _td(days=days_ago)).isoformat()
+            docs.append({
+                "id": f"rev_{uuid.uuid4().hex[:10]}",
+                "order_id": f"seed_{uuid.uuid4().hex[:8]}",
+                "order_number": f"ORD-SEED-{uuid.uuid4().hex[:4].upper()}",
+                "item_id": item_id,
+                "item_name": next((x["name"] for x in SEED_ITEMS if x["id"] == item_id), None),
+                "rating": rating,
+                "text": text,
+                "photos": [],
+                "anonymous": name == "Anonymous",
+                "verified_purchase": True,
+                "user_id": None,
+                "user_name": name,
+                "user_email": None,
+                "status": "approved",
+                "admin_response": None,
+                "helpful_count": helpful,
+                "created_at": when,
+                "updated_at": when,
+                "is_overall": False,
+            })
+        # One with admin response as demo
+        docs[5]["admin_response"] = {
+            "text": "We're sorry to hear this Avery — we've shared your feedback with the kitchen and would love to have you back on the house next time. Please reach out to us.",
+            "responded_by": "Chef Administrator",
+            "responded_at": now.isoformat(),
+        }
+        await db.reviews.insert_many(docs)
+        # Aggregate per item
+        item_ids = {d["item_id"] for d in docs}
+        for iid in item_ids:
+            pipeline = [
+                {"$match": {"item_id": iid, "status": "approved"}},
+                {"$group": {"_id": None, "count": {"$sum": 1}, "avg": {"$avg": "$rating"},
+                            "r1": {"$sum": {"$cond": [{"$eq": ["$rating", 1]}, 1, 0]}},
+                            "r2": {"$sum": {"$cond": [{"$eq": ["$rating", 2]}, 1, 0]}},
+                            "r3": {"$sum": {"$cond": [{"$eq": ["$rating", 3]}, 1, 0]}},
+                            "r4": {"$sum": {"$cond": [{"$eq": ["$rating", 4]}, 1, 0]}},
+                            "r5": {"$sum": {"$cond": [{"$eq": ["$rating", 5]}, 1, 0]}}}},
+            ]
+            agg = await db.reviews.aggregate(pipeline).to_list(1)
+            if agg:
+                r = agg[0]
+                await db.menu_items.update_one({"id": iid}, {"$set": {
+                    "rating_avg": round(float(r["avg"] or 0), 2),
+                    "rating_count": int(r["count"]),
+                    "rating_distribution": {str(i): r[f"r{i}"] for i in range(1, 6)},
+                }})
+        logger.info(f"Seeded {len(docs)} demo reviews")

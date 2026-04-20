@@ -6,6 +6,7 @@ import {
   AlertCircle, Loader2, CircleDot, Store, PhoneCall, Mail, Printer, XCircle,
 } from "lucide-react";
 import CancelOrderButton, { PriceAdjustmentBanner } from "@/components/orders/CancelOrderButton";
+import ReviewPrompt from "@/components/reviews/ReviewPrompt";
 
 const POLL_INTERVAL = 10000;
 
@@ -173,6 +174,12 @@ export default function OrderTrackingPage() {
 
         {order.status !== "cancelled" && order.status !== "rejected" && (
           <CancelOrderButton order={order} onCancelled={() => { /* poll will refresh UI */ }} />
+        )}
+
+        {(order.status === "delivered" || order.status === "completed") && (
+          <div className="mb-6">
+            <ReviewPrompt orderId={order.id} />
+          </div>
         )}
 
         {/* Header */}

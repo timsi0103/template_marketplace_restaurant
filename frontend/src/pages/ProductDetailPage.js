@@ -6,6 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useCart } from "@/contexts/CartContext";
 import { useSeo } from "@/hooks/useSeo";
+import StarRating from "@/components/reviews/StarRating";
+import ReviewList from "@/components/reviews/ReviewList";
 
 const API_BASE = "/api";
 
@@ -241,6 +243,13 @@ export default function ProductDetailPage() {
 
         <h1 data-testid="product-name" className={`font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight ${effectivelySoldOut ? "text-brand-text-secondary" : "text-brand-text"}`}>{product.name}</h1>
 
+        {/* Rating summary */}
+        {product.rating_count > 0 && (
+          <div data-testid="product-rating-summary" className="flex items-center gap-2 mt-2">
+            <StarRating value={product.rating_avg || 0} size={14} readOnly showValue count={product.rating_count} testIdPrefix="product-rating" />
+          </div>
+        )}
+
         {/* Live price */}
         <div className="flex items-baseline gap-2 mt-1">
           <span data-testid="product-price" className={`font-heading text-xl sm:text-2xl font-bold ${effectivelySoldOut || isSoldOut ? "text-brand-text-secondary" : "text-brand-primary"}`}>${unitPrice.toFixed(2)}</span>
@@ -397,6 +406,9 @@ export default function ProductDetailPage() {
             </button>
           </div>
         )}
+
+        {/* Reviews */}
+        <ReviewList itemId={product.id} />
       </div>
 
       {/* Mobile sticky bar */}

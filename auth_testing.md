@@ -42,7 +42,7 @@ await page.context.add_cookies([{
     "secure": true,
     "sameSite": "None"
 }]);
-await page.goto("https://food-delivery-hub-275.preview.emergentagent.com");
+await page.goto("https://restaurant-stack.preview.emergentagent.com");
 ```
 
 ## API Endpoints
