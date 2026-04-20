@@ -151,6 +151,25 @@ async def run_startup_seed():
     except Exception as e:
         logger.warning(f"Subcategory backfill skipped: {e}")
 
+    # Dietary tag backfill (idempotent — only sets if missing)
+    dietary_map = {
+        "item-001": ["halal"],
+        "item-002": ["vegetarian", "nut_free"],
+        "item-003": ["vegan", "gluten_free", "dairy_free", "nut_free"],
+        "item-004": ["vegetarian", "spicy"],
+        "item-005": ["vegetarian"],
+        "item-006": ["vegetarian"],
+        "item-007": ["halal", "spicy", "dairy_free"],
+        "item-008": ["vegan", "gluten_free", "dairy_free", "nut_free"],
+        "item-009": ["vegetarian", "gluten_free"],
+        "item-010": ["vegan", "gluten_free", "dairy_free", "nut_free"],
+    }
+    for iid, tags in dietary_map.items():
+        await db.menu_items.update_one(
+            {"id": iid, "$or": [{"dietary_tags": {"$exists": False}}, {"dietary_tags": []}, {"dietary_tags": None}]},
+            {"$set": {"dietary_tags": tags}},
+        )
+
     # Test credentials file
     creds_dir = Path("/app/memory")
     creds_dir.mkdir(exist_ok=True)

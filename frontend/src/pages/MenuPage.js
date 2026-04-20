@@ -1,25 +1,30 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Plus, LayoutGrid, List } from "lucide-react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { Plus, Search as SearchIcon, X, SlidersHorizontal, Eye, LayoutGrid, List, ArrowUpDown } from "lucide-react";
+import axios from "axios";
 import { useCart } from "@/contexts/CartContext";
+import FilterDrawer from "@/components/menu/FilterDrawer";
+import QuickViewModal from "@/components/menu/QuickViewModal";
 
-const API_BASE = "/api";
+const API = "/api";
 
-function SkeletonCard({ isGrid }) {
-  if (isGrid) {
-    return (
-      <div data-testid="skeleton-card" className="rounded-2xl overflow-hidden bg-brand-surface border border-brand-border">
-        <div className="aspect-square bg-brand-border/40 skeleton-shimmer" />
-      </div>
-    );
-  }
+const SORT_OPTIONS = [
+  { value: "popularity", label: "Popular" },
+  { value: "price_asc", label: "Price: low → high" },
+  { value: "price_desc", label: "Price: high → low" },
+  { value: "newest", label: "Newest" },
+  { value: "name_asc", label: "A → Z" },
+];
+
+const SEARCH_SUGGESTIONS = ["Burrata", "Duck", "Tagliatelle", "Pizza", "Cold Brew", "Vegan"];
+
+function SkeletonCard() {
   return (
-    <div data-testid="skeleton-card" className="rounded-2xl overflow-hidden bg-brand-surface border border-brand-border flex flex-row sm:flex-col">
-      <div className="flex-shrink-0 w-28 h-28 sm:w-auto sm:h-auto sm:aspect-[4/3] bg-brand-border/40 skeleton-shimmer" />
-      <div className="p-3 sm:p-5 flex flex-col justify-center flex-1 min-w-0 gap-2">
+    <div data-testid="skeleton-card" className="rounded-2xl overflow-hidden bg-brand-surface border border-brand-border">
+      <div className="aspect-[4/3] bg-brand-border/40 skeleton-shimmer" />
+      <div className="p-4 space-y-2">
         <div className="h-4 w-3/4 bg-brand-border/40 rounded skeleton-shimmer" />
-        <div className="h-3 w-full bg-brand-border/30 rounded skeleton-shimmer hidden sm:block" />
-        <div className="h-3 w-1/2 bg-brand-border/30 rounded skeleton-shimmer hidden sm:block" />
+        <div className="h-3 w-full bg-brand-border/30 rounded skeleton-shimmer" />
         <div className="flex items-center justify-between mt-2">
           <div className="h-5 w-16 bg-brand-border/40 rounded skeleton-shimmer" />
           <div className="w-8 h-8 bg-brand-border/30 rounded-full skeleton-shimmer" />
@@ -30,37 +35,131 @@ function SkeletonCard({ isGrid }) {
 }
 
 export default function MenuPage() {
+  const { addItem } = useCart();
+
   const [categories, setCategories] = useState([]);
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [activeSubcategory, setActiveSubcategory] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("list");
-  const { addItem } = useCart();
-  const navigate = useNavigate();
+  const [catalogSettings, setCatalogSettings] = useState(null);
 
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [autocomplete, setAutocomplete] = useState([]);
+  const [autoOpen, setAutoOpen] = useState(false);
+  const autoRef = useRef(null);
+
+  const [activeDietary, setActiveDietary] = useState(new Set());
+  const [priceRange, setPriceRange] = useState([0, 100]);
+  const [priceBounds, setPriceBounds] = useState({ min: 0, max: 100 });
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [sort, setSort] = useState("popularity");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [viewMode, setViewMode] = useState("list");
+
+  const [quickViewId, setQuickViewId] = useState(null);
+  const sectionRefs = useRef({});
+
+  // Load settings (dietary visibility, default sort, price bounds, quick-view toggle)
   useEffect(() => {
-    fetch(`${API_BASE}/categories/tree`).then(r => r.json()).then(d => setCategories(d.categories || [])).catch(() => {});
+    axios.get(`${API}/catalog/settings`).then(({ data }) => {
+      setCatalogSettings(data);
+      setSort(data.default_sort || "popularity");
+      setPriceBounds({ min: Number(data.price_min ?? 0), max: Number(data.price_max ?? 100) });
+      setPriceRange([Number(data.price_min ?? 0), Number(data.price_max ?? 100)]);
+    }).catch(() => setCatalogSettings({
+      visible_dietary_tags: [], default_sort: "popularity",
+      quick_view_enabled: true, price_min: 0, price_max: 100,
+      sticky_category_bar: true, show_in_stock_toggle: true,
+    }));
   }, []);
 
+  // Load categories
+  useEffect(() => {
+    axios.get(`${API}/categories/tree`).then(({ data }) => setCategories(data.categories || [])).catch(() => {});
+  }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 220);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Fetch full result list (respects filters/sort/search)
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (activeCategory !== "all") params.set("category", activeCategory);
-    if (activeSubcategory) params.set("subcategory", activeSubcategory);
-    const url = `${API_BASE}/menu/items${params.toString() ? `?${params.toString()}` : ""}`;
-    fetch(url).then(r => r.json()).then(d => setItems(d.items || [])).catch(() => setItems([])).finally(() => setLoading(false));
-  }, [activeCategory, activeSubcategory]);
+    if (debouncedSearch) params.set("q", debouncedSearch);
+    for (const d of activeDietary) params.append("dietary", d);
+    if (priceRange[0] > priceBounds.min) params.set("min_price", String(priceRange[0]));
+    if (priceRange[1] < priceBounds.max) params.set("max_price", String(priceRange[1]));
+    if (inStockOnly) params.set("in_stock_only", "true");
+    params.set("sort", sort);
+    params.set("limit", "60");
+    axios.get(`${API}/search/menu?${params.toString()}`)
+      .then(({ data }) => setItems(data.items || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false));
+  }, [debouncedSearch, activeDietary, priceRange, priceBounds.min, priceBounds.max, inStockOnly, sort]);
 
-  const handleCategoryClick = (slug) => {
-    if (slug !== activeCategory) {
-      setActiveCategory(slug);
-      setActiveSubcategory(null);
+  // Autocomplete: lightweight, top 5 by name
+  useEffect(() => {
+    if (!search.trim()) { setAutocomplete([]); return; }
+    const t = setTimeout(() => {
+      axios.get(`${API}/search/menu`, { params: { q: search.trim(), limit: 6 } })
+        .then(({ data }) => setAutocomplete(data.items || []))
+        .catch(() => setAutocomplete([]));
+    }, 180);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Click outside autocomplete
+  useEffect(() => {
+    const h = (e) => { if (autoRef.current && !autoRef.current.contains(e.target)) setAutoOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  // Group results by category for section rendering
+  const grouped = useMemo(() => {
+    const byCat = new Map();
+    for (const it of items) {
+      const key = it.category || "other";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key).push(it);
     }
+    return byCat;
+  }, [items]);
+
+  const visibleCategories = useMemo(() => {
+    const slugs = new Set(grouped.keys());
+    return categories.filter((c) => c.visible !== false && slugs.has(c.slug));
+  }, [categories, grouped]);
+
+  const dietaryOptions = catalogSettings?.visible_dietary_tags || [];
+  const showInStockToggle = catalogSettings?.show_in_stock_toggle !== false;
+  const stickyBar = catalogSettings?.sticky_category_bar !== false;
+  const quickViewEnabled = catalogSettings?.quick_view_enabled !== false;
+
+  const activeCount =
+    activeDietary.size +
+    (priceRange[0] > priceBounds.min || priceRange[1] < priceBounds.max ? 1 : 0) +
+    (inStockOnly ? 1 : 0);
+
+  const toggleDietary = (k) => setActiveDietary((prev) => {
+    const s = new Set(prev); s.has(k) ? s.delete(k) : s.add(k); return s;
+  });
+  const resetFilters = () => {
+    setActiveDietary(new Set());
+    setPriceRange([priceBounds.min, priceBounds.max]);
+    setInStockOnly(false);
   };
 
-  const activeCat = categories.find(c => c.slug === activeCategory);
-  const subcategories = activeCat?.subcategories?.filter(s => s.visible !== false) || [];
+  const scrollToCategory = useCallback((slug) => {
+    const el = sectionRefs.current[slug];
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 160;
+    window.scrollTo({ top, behavior: "smooth" });
+  }, []);
 
   const handleAdd = (e, item) => {
     e.preventDefault(); e.stopPropagation();
@@ -68,149 +167,309 @@ export default function MenuPage() {
     addItem({ id: item.id, name: item.name, price: item.price, image: item.image });
   };
 
+  const handleCardClick = (e, item) => {
+    if (!quickViewEnabled) return;
+    e.preventDefault();
+    setQuickViewId(item.id);
+  };
+
   return (
     <div data-testid="menu-page" className="min-h-screen">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10 lg:pt-14">
-        <div className="flex items-end justify-between mb-6 sm:mb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-10">
+        <div className="flex items-end justify-between mb-5 sm:mb-8">
           <div>
             <h1 data-testid="menu-title" className="font-heading text-3xl sm:text-5xl lg:text-6xl font-bold text-brand-text tracking-tight leading-none">The Collection</h1>
-            <p data-testid="menu-subtitle" className="font-body text-xs sm:text-base text-brand-text-secondary mt-2 sm:mt-3 max-w-xl leading-relaxed">A curated selection of our finest offerings, designed to elevate your palate.</p>
+            <p data-testid="menu-subtitle" className="font-body text-xs sm:text-base text-brand-text-secondary mt-2 sm:mt-3 max-w-xl leading-relaxed">
+              A curated selection, searchable and filterable to your taste.
+            </p>
           </div>
-          {/* View Mode Toggle */}
           <div data-testid="view-toggle" className="hidden sm:flex items-center gap-1 bg-brand-surface border border-brand-border rounded-lg p-1">
-            <button data-testid="view-list-btn" onClick={() => setViewMode("list")} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${viewMode === "list" ? "bg-brand-primary text-white" : "text-brand-text-secondary hover:text-brand-text"}`}>
+            <button data-testid="view-list-btn" onClick={() => setViewMode("list")} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${viewMode === "list" ? "bg-brand-primary text-white" : "text-brand-text-secondary"}`}>
               <List size={16} />
             </button>
-            <button data-testid="view-grid-btn" onClick={() => setViewMode("grid")} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${viewMode === "grid" ? "bg-brand-primary text-white" : "text-brand-text-secondary hover:text-brand-text"}`}>
+            <button data-testid="view-grid-btn" onClick={() => setViewMode("grid")} className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors ${viewMode === "grid" ? "bg-brand-primary text-white" : "text-brand-text-secondary"}`}>
               <LayoutGrid size={16} />
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Category Nav */}
-        {categories.length > 0 && (
-          <div data-testid="category-nav" className="mb-6 sm:mb-8">
-            <div className="flex gap-3 sm:gap-4 overflow-x-auto hide-scrollbar scroll-snap-x pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-              <button data-testid="category-all" onClick={() => { setActiveCategory("all"); setActiveSubcategory(null); }}
-                className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all ${activeCategory === "all" ? "" : "opacity-60 hover:opacity-100"}`}>
-                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === "all" ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
-                  <div className="w-full h-full bg-brand-primary/10 flex items-center justify-center"><span className="font-heading text-xl sm:text-2xl font-bold text-brand-primary">All</span></div>
-                </div>
-                <span className={`font-body text-[10px] sm:text-xs font-medium ${activeCategory === "all" ? "text-brand-text" : "text-brand-text-secondary"}`}>All</span>
+      {/* Sticky tool bar */}
+      <div
+        data-testid="menu-toolbar"
+        className={`${stickyBar ? "sticky top-0 z-30" : ""} bg-brand-bg/95 backdrop-blur-md border-y border-brand-border/70`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-2 sm:gap-3">
+          {/* Search */}
+          <div ref={autoRef} className="relative flex-1 max-w-xl">
+            <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-text-secondary pointer-events-none" />
+            <input
+              data-testid="menu-search-input"
+              value={search}
+              onFocus={() => setAutoOpen(true)}
+              onChange={(e) => { setSearch(e.target.value); setAutoOpen(true); }}
+              placeholder="Search dishes, tags, diets…"
+              className="w-full h-10 pl-9 pr-9 rounded-full border border-brand-border bg-brand-surface focus:bg-white focus:border-brand-primary/60 text-sm outline-none transition"
+            />
+            {search && (
+              <button data-testid="menu-search-clear" onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-brand-text-secondary hover:text-brand-primary">
+                <X size={14} />
               </button>
-              {categories.filter(c => c.visible !== false).map((cat) => (
-                <button key={cat.id} data-testid={`category-${cat.slug}`} onClick={() => handleCategoryClick(cat.slug)}
-                  className={`flex flex-col items-center gap-2 flex-shrink-0 transition-all ${activeCategory === cat.slug ? "" : "opacity-60 hover:opacity-100"}`}>
-                  <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 transition-all ${activeCategory === cat.slug ? "border-brand-primary shadow-md" : "border-brand-border"}`}>
-                    {cat.image ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-brand-bg flex items-center justify-center"><span className="font-heading text-lg font-bold text-brand-text-secondary">{cat.name.charAt(0)}</span></div>}
-                  </div>
-                  <span className={`font-body text-[10px] sm:text-xs font-medium ${activeCategory === cat.slug ? "text-brand-text" : "text-brand-text-secondary"}`}>{cat.name}</span>
+            )}
+            {autoOpen && search.trim() && autocomplete.length > 0 && (
+              <div data-testid="autocomplete-dropdown" className="absolute top-full left-0 right-0 mt-1 bg-white border border-brand-border rounded-xl shadow-lg overflow-hidden z-50">
+                {autocomplete.map((it) => (
+                  <button
+                    key={it.id}
+                    data-testid={`autocomplete-${it.id}`}
+                    onClick={() => {
+                      setAutoOpen(false);
+                      if (quickViewEnabled) setQuickViewId(it.id);
+                      else window.location.href = `/product/${it.id}`;
+                    }}
+                    className="w-full flex items-center gap-3 p-2.5 hover:bg-brand-surface transition text-left"
+                  >
+                    <img src={it.image} alt="" className="w-10 h-10 object-cover rounded-md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-sm font-semibold text-brand-text truncate">{it.name}</div>
+                      <div className="text-xs text-brand-text-secondary capitalize">{it.category} · ${it.price?.toFixed?.(2)}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sort */}
+          <label className="relative inline-flex items-center">
+            <span className="sr-only">Sort</span>
+            <ArrowUpDown size={13} className="absolute left-3 text-brand-text-secondary pointer-events-none" />
+            <select
+              data-testid="menu-sort-select"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="h-10 pl-8 pr-3 rounded-full border border-brand-border bg-brand-surface text-xs font-body font-medium text-brand-text outline-none focus:border-brand-primary/60 appearance-none"
+            >
+              {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </label>
+
+          {/* Filter button */}
+          <button
+            data-testid="open-filters-btn"
+            onClick={() => setFilterOpen(true)}
+            className="relative h-10 px-4 inline-flex items-center gap-1.5 rounded-full border border-brand-border bg-brand-surface text-xs font-body font-semibold text-brand-text hover:border-brand-primary/40 transition"
+          >
+            <SlidersHorizontal size={13} /> <span className="hidden sm:inline">Filters</span>
+            {activeCount > 0 && (
+              <span data-testid="active-filter-count" className="ml-0.5 min-w-[18px] h-[18px] rounded-full bg-brand-primary text-white text-[10px] font-bold flex items-center justify-center px-1">{activeCount}</span>
+            )}
+          </button>
+        </div>
+
+        {/* Category pills row */}
+        {visibleCategories.length > 0 && (
+          <div data-testid="sticky-category-bar" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-3">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
+              {visibleCategories.map((c) => (
+                <button
+                  key={c.id}
+                  data-testid={`category-pill-${c.slug}`}
+                  onClick={() => scrollToCategory(c.slug)}
+                  className="px-3.5 py-1.5 rounded-full border border-brand-border bg-brand-surface whitespace-nowrap text-xs font-body font-medium text-brand-text hover:bg-brand-primary hover:text-white hover:border-brand-primary transition active:scale-95"
+                >
+                  {c.name}
+                  <span className="ml-1.5 text-[10px] opacity-60">{grouped.get(c.slug)?.length || 0}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
-
-        {/* Subcategory pills */}
-        {subcategories.length > 0 && (
-          <div data-testid="subcategory-pills" className="mb-6 sm:mb-8">
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar scroll-snap-x">
-              <button data-testid={`pill-all-${activeCat?.slug}`} onClick={() => setActiveSubcategory(null)} className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${!activeSubcategory ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}>All {activeCat?.name}</button>
-              {subcategories.map((sub) => (<button key={sub.id} data-testid={`pill-${sub.slug}`} onClick={() => setActiveSubcategory(sub.slug)} className={`font-body text-xs px-4 py-1.5 rounded-full border whitespace-nowrap flex-shrink-0 active:scale-95 transition-all ${activeSubcategory === sub.slug ? "bg-brand-orange text-white border-brand-orange" : "bg-brand-surface text-brand-text-secondary border-brand-border"}`}>{sub.name}</button>))}
-            </div>
-          </div>
-        )}
-
-        {activeCategory !== "all" && activeCat && (
-          <Link to={`/menu/${activeCat.slug}`} data-testid="view-category-link" className="inline-flex items-center gap-1 font-body text-xs text-brand-primary font-medium mb-4 hover:text-brand-primary-hover transition-colors">View full {activeCat.name} collection &rarr;</Link>
-        )}
       </div>
 
-      {/* Product Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-14">
+      {/* Active filters chips */}
+      {activeCount > 0 && (
+        <div data-testid="active-chips-row" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 flex flex-wrap items-center gap-2">
+          {[...activeDietary].map((k) => (
+            <button key={k} onClick={() => toggleDietary(k)} className="px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-[11px] font-body font-medium flex items-center gap-1 hover:bg-brand-primary/20">
+              {k.replace(/_/g, " ")} <X size={10} />
+            </button>
+          ))}
+          {(priceRange[0] > priceBounds.min || priceRange[1] < priceBounds.max) && (
+            <span className="px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-[11px] font-body font-medium">
+              ${priceRange[0]}–${priceRange[1]}
+            </span>
+          )}
+          {inStockOnly && (
+            <span className="px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-[11px] font-body font-medium">In stock</span>
+          )}
+          <button onClick={resetFilters} data-testid="chips-clear-all" className="text-[11px] font-body font-semibold text-brand-text-secondary hover:text-brand-primary underline underline-offset-2">
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Sections */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         {loading ? (
-          /* Skeleton Loading */
-          <div data-testid="skeleton-grid" className={viewMode === "grid"
-            ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"
-            : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8"
-          }>
-            {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} isGrid={viewMode === "grid"} />)}
+          <div data-testid="skeleton-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-20"><p className="font-body text-sm text-brand-text-secondary">No items in this category yet.</p></div>
-        ) : viewMode === "grid" ? (
-          /* ── Gallery Grid View ── */
-          <div data-testid="gallery-grid" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {items.map((item) => {
-              const isSoldOut = item.status === "sold_out";
-              return (
-                <Link key={item.id} to={`/product/${item.id}`} data-testid={`gallery-item-${item.id}`}
-                  className={`group relative rounded-2xl overflow-hidden ${isSoldOut ? "opacity-70" : ""}`}>
-                  <div className="aspect-square overflow-hidden bg-brand-bg">
-                    <img src={item.image} alt={item.name} loading="lazy"
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isSoldOut ? "grayscale" : ""}`} />
-                  </div>
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  {/* Always-visible bottom info */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                    <h3 className="font-heading text-xs sm:text-sm font-bold text-white line-clamp-1">{item.name}</h3>
-                    <span className={`font-heading text-sm sm:text-base font-bold ${isSoldOut ? "text-white/60" : "text-brand-orange"}`}>
-                      ${item.price?.toFixed(2)}
-                    </span>
-                  </div>
-                  {/* Tags */}
-                  {item.tags?.length > 0 && (
-                    <span className="absolute top-2 left-2 px-2 py-0.5 text-[8px] sm:text-[9px] font-body font-semibold uppercase tracking-wider rounded bg-brand-orange text-white">{item.tags[0]}</span>
-                  )}
-                  {isSoldOut && (
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <span className="px-2 py-0.5 sm:px-3 sm:py-1 bg-red-600 text-white text-[9px] sm:text-[10px] font-body font-bold uppercase rounded">Sold Out</span>
-                    </div>
-                  )}
-                  {/* Hover Add button */}
-                  {!isSoldOut && (
-                    <button data-testid={`gallery-add-${item.id}`} onClick={(e) => handleAdd(e, item)}
-                      className="absolute top-2 right-2 sm:top-3 sm:right-3 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-brand-surface/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-brand-primary hover:text-white active:scale-90 shadow-md">
-                      <Plus size={16} />
-                    </button>
-                  )}
-                </Link>
-              );
-            })}
+          <div data-testid="no-results-state" className="text-center py-16 max-w-md mx-auto">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-brand-primary/10 flex items-center justify-center mb-4">
+              <SearchIcon size={24} className="text-brand-primary" />
+            </div>
+            <h3 className="font-heading text-2xl font-bold text-brand-text">No dishes match.</h3>
+            <p className="font-body text-sm text-brand-text-secondary mt-1.5">
+              {debouncedSearch ? <>We couldn't find anything for <span className="font-semibold">"{debouncedSearch}"</span>.</> : "Try adjusting your filters."}
+            </p>
+            <div className="mt-5">
+              <div className="text-[11px] uppercase tracking-wider text-brand-text-secondary font-semibold mb-2">Try searching for</div>
+              <div className="flex flex-wrap justify-center gap-1.5">
+                {SEARCH_SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    data-testid={`search-suggest-${s.toLowerCase()}`}
+                    onClick={() => { setSearch(s); setAutoOpen(false); }}
+                    className="px-3 py-1 rounded-full border border-brand-border text-xs font-body font-medium text-brand-text hover:border-brand-primary hover:text-brand-primary transition"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {activeCount > 0 && (
+              <button onClick={resetFilters} data-testid="no-results-reset-btn" className="mt-5 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand-primary text-white text-xs font-body font-semibold hover:bg-brand-primary-hover">
+                Reset filters
+              </button>
+            )}
           </div>
         ) : (
-          /* ── List View (default) ── */
-          <div data-testid="product-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-            {items.map((item) => {
-              const isSoldOut = item.status === "sold_out";
+          <div className="space-y-10">
+            {[...grouped.entries()].map(([slug, sectionItems]) => {
+              const cat = categories.find((c) => c.slug === slug);
               return (
-                <Link key={item.id} to={`/product/${item.id}`} data-testid={`menu-item-${item.id}`}
-                  className={`product-card group bg-brand-surface rounded-2xl overflow-hidden border border-brand-border flex flex-row sm:flex-col ${isSoldOut ? "opacity-70" : ""}`}>
-                  <div className="relative overflow-hidden bg-brand-bg flex-shrink-0 w-28 h-28 sm:w-auto sm:h-auto sm:aspect-[4/3]">
-                    <img src={item.image} alt={item.name} loading="lazy"
-                      className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isSoldOut ? "grayscale" : ""}`} />
-                    {item.tags?.length > 0 && (
-                      <span className={`absolute top-2 left-2 sm:top-3 sm:left-3 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[9px] sm:text-[10px] font-body font-semibold uppercase tracking-wider rounded ${item.tags[0] === "CHEF'S SIGNATURE" || item.tags[0] === "CHEF'S SELECTION" ? "bg-brand-orange text-white" : "bg-brand-surface text-brand-text border border-brand-border"}`}>{item.tags[0]}</span>
-                    )}
-                    {isSoldOut && (<div className="absolute inset-0 bg-black/30 flex items-center justify-center"><span className="px-3 py-1 bg-red-600 text-white text-[10px] font-body font-bold uppercase tracking-wider rounded">Sold Out</span></div>)}
-                    {item.status === "seasonal" && (<span className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-0.5 bg-amber-500 text-white text-[9px] font-body font-semibold uppercase rounded">Seasonal</span>)}
+                <section
+                  key={slug}
+                  ref={(el) => { if (el) sectionRefs.current[slug] = el; }}
+                  data-testid={`section-${slug}`}
+                  className="scroll-mt-36"
+                >
+                  <div className="flex items-end justify-between mb-4">
+                    <h2 className="font-heading text-2xl sm:text-3xl font-bold text-brand-text capitalize">
+                      {cat?.name || slug}
+                    </h2>
+                    <span className="text-xs text-brand-text-secondary">{sectionItems.length} {sectionItems.length === 1 ? "dish" : "dishes"}</span>
                   </div>
-                  <div className="p-3 sm:p-5 flex flex-col justify-center flex-1 min-w-0">
-                    <h3 className={`font-heading text-sm sm:text-base font-bold truncate sm:whitespace-normal ${isSoldOut ? "text-brand-text-secondary line-through" : "text-brand-text"}`}>{item.name}</h3>
-                    <p className="font-body text-[10px] sm:text-xs text-brand-text-secondary mt-1 sm:mt-2 leading-relaxed line-clamp-2">{item.description}</p>
-                    <div className="flex items-center justify-between mt-2 sm:mt-4">
-                      <span className={`font-heading text-base sm:text-lg font-bold ${isSoldOut ? "text-brand-text-secondary" : "text-brand-primary"}`}>${item.price?.toFixed(2)}</span>
-                      {!isSoldOut && (<button data-testid={`add-to-cart-${item.id}`} onClick={(e) => handleAdd(e, item)}
-                        className="w-9 h-9 sm:w-8 sm:h-8 rounded-full border border-brand-border flex items-center justify-center hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 transition-all duration-200"><Plus size={16} /></button>)}
-                    </div>
+                  <div className={viewMode === "grid"
+                    ? "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4"
+                    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6"
+                  }>
+                    {sectionItems.map((item) => (
+                      <ItemCard
+                        key={item.id}
+                        item={item}
+                        viewMode={viewMode}
+                        quickViewEnabled={quickViewEnabled}
+                        onQuickView={(e) => handleCardClick(e, item)}
+                        onAdd={(e) => handleAdd(e, item)}
+                      />
+                    ))}
                   </div>
-                </Link>
+                </section>
               );
             })}
           </div>
         )}
       </div>
+
+      <FilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        dietaryOptions={dietaryOptions}
+        activeDietary={activeDietary}
+        onToggleDietary={toggleDietary}
+        priceRange={priceRange}
+        onPriceChange={setPriceRange}
+        priceBounds={priceBounds}
+        inStockOnly={inStockOnly}
+        onStockToggle={setInStockOnly}
+        showInStock={showInStockToggle}
+        onReset={resetFilters}
+        activeCount={activeCount}
+      />
+
+      {quickViewEnabled && (
+        <QuickViewModal
+          itemId={quickViewId}
+          open={!!quickViewId}
+          onClose={() => setQuickViewId(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function ItemCard({ item, viewMode, quickViewEnabled, onQuickView, onAdd }) {
+  const isSoldOut = item.status === "sold_out";
+  const cardProps = quickViewEnabled
+    ? { role: "button", tabIndex: 0, onClick: onQuickView, onKeyDown: (e) => { if (e.key === "Enter") onQuickView(e); } }
+    : {};
+  const CardTag = quickViewEnabled ? "div" : Link;
+  const extraProps = quickViewEnabled ? {} : { to: `/product/${item.id}` };
+
+  return (
+    <CardTag
+      data-testid={`menu-item-${item.id}`}
+      className={`product-card group bg-brand-surface rounded-2xl overflow-hidden border border-brand-border cursor-pointer ${isSoldOut ? "opacity-70" : ""} ${viewMode === "list" ? "flex flex-row sm:flex-col" : "flex flex-col"}`}
+      {...extraProps}
+      {...cardProps}
+    >
+      <div className={`relative overflow-hidden bg-brand-bg flex-shrink-0 ${viewMode === "list" ? "w-28 h-28 sm:w-auto sm:h-auto sm:aspect-[4/3]" : "aspect-square"}`}>
+        <img src={item.image} alt={item.name} loading="lazy"
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isSoldOut ? "grayscale" : ""}`} />
+        {quickViewEnabled && !isSoldOut && (
+          <button
+            data-testid={`quickview-btn-${item.id}`}
+            onClick={onQuickView}
+            aria-label="Quick view"
+            className="absolute top-2 left-2 w-8 h-8 rounded-full bg-brand-surface/90 text-brand-text flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-brand-primary hover:text-white"
+          >
+            <Eye size={14} />
+          </button>
+        )}
+        {item.tags?.length > 0 && (
+          <span className="absolute top-2 right-2 px-2 py-0.5 text-[9px] font-body font-semibold uppercase tracking-wider rounded bg-brand-orange text-white">{item.tags[0]}</span>
+        )}
+        {isSoldOut && (
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+            <span className="px-3 py-1 bg-red-600 text-white text-[10px] font-body font-bold uppercase tracking-wider rounded">Sold Out</span>
+          </div>
+        )}
+      </div>
+      <div className="p-3 sm:p-4 flex flex-col justify-center flex-1 min-w-0">
+        <h3 className={`font-heading text-sm sm:text-base font-bold truncate sm:whitespace-normal ${isSoldOut ? "text-brand-text-secondary line-through" : "text-brand-text"}`}>{item.name}</h3>
+        <p className="font-body text-[10px] sm:text-xs text-brand-text-secondary mt-1 leading-relaxed line-clamp-2">{item.description}</p>
+        {item.dietary_tags?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {item.dietary_tags.slice(0, 3).map((t) => (
+              <span key={t} className="px-1.5 py-0.5 rounded-full text-[9px] font-body font-medium bg-brand-bg border border-brand-border text-brand-text-secondary capitalize">
+                {t.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-2 sm:mt-3">
+          <span className={`font-heading text-base sm:text-lg font-bold ${isSoldOut ? "text-brand-text-secondary" : "text-brand-primary"}`}>${item.price?.toFixed(2)}</span>
+          {!isSoldOut && (
+            <button data-testid={`add-to-cart-${item.id}`} onClick={onAdd}
+              className="w-9 h-9 rounded-full border border-brand-border flex items-center justify-center hover:bg-brand-primary hover:text-white hover:border-brand-primary active:scale-90 transition-all duration-200">
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+    </CardTag>
   );
 }

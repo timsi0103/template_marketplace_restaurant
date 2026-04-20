@@ -22,6 +22,7 @@ import routes.analytics     # noqa: F401
 import routes.throttle      # noqa: F401
 import routes.eightysix     # noqa: F401
 import routes.storefront    # noqa: F401
+import routes.catalog_settings  # noqa: F401
 
 from seed import run_startup_seed
 

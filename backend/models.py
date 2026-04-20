@@ -46,6 +46,7 @@ class MenuItemCreate(BaseModel):
     image: str = ""
     images: List[str] = []
     tags: List[str] = []
+    dietary_tags: List[str] = []
     status: str = "in_stock"
     variants: List[VariantItem] = []
 
@@ -58,6 +59,7 @@ class MenuItemUpdate(BaseModel):
     image: Optional[str] = None
     images: Optional[List[str]] = None
     tags: Optional[List[str]] = None
+    dietary_tags: Optional[List[str]] = None
     status: Optional[str] = None
     variants: Optional[List[VariantItem]] = None
 
