@@ -4,7 +4,7 @@ import { Heart, Plus, ArrowRight } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useStorefront, applyStorefrontMeta } from "@/hooks/useStorefront";
 import { useSeo } from "@/hooks/useSeo";
-import { AboutSection, FeaturedCategories, SocialProofSection, BrandFooter } from "@/components/storefront/Sections";
+import { AboutSection, FeaturedCategories, SocialProofSection } from "@/components/storefront/Sections";
 
 const heroProduct = {
   tag: "CHEF'S SELECTION",
@@ -292,7 +292,6 @@ export default function HomePage() {
       <FeaturedCategories />
       <AboutSection about={storefront?.about} />
       <SocialProofSection />
-      <BrandFooter storefront={storefront} />
     </div>
   );
 }
