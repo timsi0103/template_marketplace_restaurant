@@ -1175,7 +1175,7 @@ async def payment_status(session_id: str, request: Request):
                 {"id": order_id},
                 {"$set": {
                     "payment_status": "paid",
-                    "status": "preparing",
+                    "status": "pending",
                     "updated_at": now_iso,
                 }},
             )
@@ -1257,7 +1257,7 @@ async def stripe_webhook(request: Request):
                 if order_id:
                     await db.orders.update_one(
                         {"id": order_id},
-                        {"$set": {"payment_status": "paid", "status": "preparing", "updated_at": now_iso}},
+                        {"$set": {"payment_status": "paid", "status": "pending", "updated_at": now_iso}},
                     )
     return {"received": True}
 
@@ -1497,7 +1497,7 @@ class RejectBody(BaseModel):
 @api_router.get("/admin/orders/new")
 async def admin_new_orders(since: Optional[str] = None, request: Request = None):
     await require_admin(request)
-    query = {"payment_status": "paid", "status": {"$in": ["preparing", "pending"]}}
+    query = {"payment_status": "paid", "status": "pending"}
     if since:
         query["created_at"] = {"$gt": since}
     orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -1627,7 +1627,7 @@ async def kds_board(request: Request, station: Optional[str] = None):
     """Return orders currently on the kitchen floor, optionally filtered by station."""
     await require_admin(request)
     settings_doc = await db.kds_settings.find_one({"key": "kds_settings"}, {"_id": 0}) or DEFAULT_KDS_SETTINGS
-    query = {"payment_status": "paid", "status": {"$in": ["preparing", "ready", "pending"]}}
+    query = {"payment_status": "paid", "status": {"$in": ["preparing", "ready"]}}
     orders = await db.orders.find(query, {"_id": 0}).sort("created_at", 1).to_list(100)
 
     # Filter orders by station (only keep items matching station's categories)

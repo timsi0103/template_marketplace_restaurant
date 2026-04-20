@@ -67,7 +67,7 @@ export default function AdminNewOrdersPanel() {
         const byId = new Map();
         [...fresh, ...prev].forEach((o) => byId.set(o.id, o));
         return Array.from(byId.values())
-          .filter((o) => ["preparing", "pending"].includes(o.status))
+          .filter((o) => o.status === "pending")
           .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
       });
       if (arrivals.length > 0 && sinceRef.current !== new Date(0).toISOString()) {
