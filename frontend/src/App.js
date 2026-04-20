@@ -54,6 +54,7 @@ import CategoryLandingPage from "@/pages/CategoryLandingPage";
 import AdminStorefront from "@/pages/admin/AdminStorefront";
 import AdminCatalogSettings from "@/pages/admin/AdminCatalogSettings";
 import AdminStoreProfile from "@/pages/admin/AdminStoreProfile";
+import AdminFees from "@/pages/admin/AdminFees";
 import { useStorefront } from "@/hooks/useStorefront";
 
 function AppRouter() {
@@ -114,6 +115,7 @@ function AppRouter() {
             <Route path="storefront" element={<AdminStorefront />} />
             <Route path="catalog-settings" element={<AdminCatalogSettings />} />
             <Route path="store-profile" element={<AdminStoreProfile />} />
+            <Route path="fees" element={<AdminFees />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />

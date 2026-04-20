@@ -1,0 +1,45 @@
+{
+  "summary": "Phase 11 Tax & Service Charge Configuration end-to-end testing. Backend: 19/19 pytest cases passed (auth guards, default region seed, region CRUD, patch deep-merge, default-promote-demotes-others, cannot-delete-default, pricing quote with item+category overrides, inclusive tax extraction, tiered delivery matching, delivery_blocked min_order, percent vs flat charges, tax-report CSV headers). Frontend: /admin/fees renders with all required testids (admin-fees-page, region-switcher, region-chip-{id} incl default star icon, create-region-btn, region-delete-{id}, region identity + tax + service + delivery + packaging + eco editors, tiered-editor with tier-add/remove, tax-cat-editor + tax-item-editor, checkout-preview with preview-mode buttons, preview-distance-input, preview-tip-input, preview-totals, preview-subtotal/tax/total, taxreport-start/end/download-btn, fees-save-btn). Sidebar 'Tax & Charges' link navigates to /admin/fees. TWO BUGS FOUND: (1) Live preview is not actually live — CheckoutPreview calls /fees/quote with region_id only, so backend returns persisted-config result; editing tax rate / service charge does not change the preview until 'Save & apply' is clicked. (2) PATCH /admin/fees/regions/{id} cannot clear existing category_overrides or item_overrides: deep_merge on an empty dict {} is a no-op — removing a key only happens if a different key is sent. After my tests I had to clear test-pollution (desserts:5, mains:20, itm_special:0) via direct Mongo update.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PATCH /api/admin/fees/regions/{id}", "issue": "_deep_merge on empty dict {} is a no-op, so UI/API cannot clear tax.category_overrides or tax.item_overrides once populated. Individual key-removal works only via the per-row 'remove' UI because it rebuilds the whole dict minus that key — but sending {} from an API client leaves old keys in place. Consider: if base[k] is dict AND incoming v is dict AND k is one of the *_overrides fields (or v is explicitly empty), REPLACE instead of merge. Or expose a PUT that replaces full tax block."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Live Checkout Preview", "issue": "Editing tax rate / toggling service charge does NOT update the preview within ~1s as required. Root cause: CheckoutPreview.useEffect POSTs /fees/quote with region_id only; backend uses persisted region config. The JSON.stringify(snapshot) dep retriggers the request but body never changes so response is identical. Two fixes: (A) Extend /fees/quote to accept an inline region_override body (preferred — also enables multi-tenant preview) OR (B) compute quote client-side from snapshot. Verified: after clicking 'Save & apply', preview does update, but spec requires pre-save live feedback.", "affected_selectors": ["preview-tax", "preview-service", "preview-delivery", "preview-total"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fees_config.py",
+    "/app/test_reports/pytest/iteration_28_results.xml"
+  ],
+  "action_items": [
+    "Make /fees/quote accept an inline region config (e.g., `region_override: {...}`) and have CheckoutPreview send the local snapshot when available — so the preview updates without saving.",
+    "Fix _deep_merge so that replacing *_overrides with {} actually clears previous entries (or switch those fields to non-merge replacement). Add a regression test: PATCH with category_overrides:{} then GET region should return category_overrides:{}.",
+    "Optional: in AdminFees save() send only the diff / send explicit empty override dicts, but backend fix is the clean path."
+  ],
+  "critical_code_review_comments": [
+    "routes/fees.py _deep_merge: unconditional recursion into dicts prevents clearing nested maps; special-case the *_overrides fields or treat {} as 'replace'.",
+    "routes/fees.py /fees/quote: no way to preview unsaved config — CheckoutPreview's live-edit goal is therefore unreachable.",
+    "routes/fees.py create_region: uses `dict(DEFAULT_REGION)` (shallow copy) — mutating nested dicts (tax/service_charge/delivery_rules) on one region would mutate DEFAULT_REGION too. Use copy.deepcopy. Currently safe because patch_region pulls `existing` from Mongo, but fragile.",
+    "AdminFees.js CheckoutPreview: uses SAMPLE_ITEMS (hardcoded duck/tart with fixed ids 'itm_duck','itm_tart'); any item_overrides set via UI won't hit the fixtures unless admin types those exact ids — acceptable for now but document the sample ids on-screen so overrides can be demoed.",
+    "AdminFees.js create flow relies on window.prompt (2 sequential prompts name+code). Works but is a UX regression vs. a modal with validation; also blocks Playwright automation unless dialog handlers are installed. Consider a Dialog-based RegionCreateForm.",
+    "Existing /api/orders path still uses hardcoded TAX_RATE/DELIVERY_FEE — not wired to the new region config. Call out as follow-up story (main agent flagged this as intentional scope cap).",
+    "AdminFees.js ~556 lines — close to 700-line guideline; splitting TaxSection, DeliverySection, ChargeSection, CheckoutPreview, TaxReportCard into separate files would help.",
+    "routes/fees.py tax_report: `line_base = qty * price` ignores tax inclusivity — if inclusive=true the reported taxable_base is the gross, overstating the base and double-counting tax. For 8.75% that's a ~8% overreport. Fix: if region.tax.inclusive, divide by (1+rate/100)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fees_config.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "85%"},
+  "test_credentials": "admin@culinaryeditorial.com / Admin123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Tests create TEST_EU/TEST_del regions and delete them in teardown. Cleanup fixture also resets default region to baseline. NOTE: the deep_merge bug meant category/item overrides from test_quote_with_item_and_category_overrides leaked across runs; I cleaned via direct Mongo update ($set tax.category_overrides={} tax.item_overrides={}) — default region is now back to baseline (Sales Tax 8.75, inclusive false, no overrides, service/packaging/eco disabled, delivery flat 4.99, min_order 0).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes the live-preview integration (snapshot-based /fees/quote or client-side compute) and the deep-merge override-clearing bug, retest: (1) edit tax rate or enable service charge on /admin/fees and verify preview-tax / preview-service update within ~1s without clicking Save; (2) PATCH with category_overrides:{} / item_overrides:{} actually clears the dicts (add to test_fees_config.py). All 19 existing tests in /app/backend/tests/test_fees_config.py should continue to pass. Sample cart in preview uses itm_duck/itm_tart so per-item overrides can be demoed against those ids.",
+  "rca of the issue": "LIVE PREVIEW BUG RCA — CheckoutPreview sends only {items:SAMPLE_ITEMS, fulfillment_type, region_id, distance_km, tip} to POST /fees/quote. The server fetches the region document from Mongo and computes totals from that snapshot; the unsaved `snapshot` prop is never transmitted. Although useEffect lists JSON.stringify(snapshot) in deps (which correctly re-fires the request on every edit), the server has no new information, so the returned quote is identical. Repro: /admin/fees → change tax-rate-input from 8.75 → 15 → wait 2s → preview-tax still shows $6.12 (=8.75% of $70) instead of $10.50. Mitigation: extend pricing_quote() to accept an optional `region_override` body merged on top of the stored region before computing, and CheckoutPreview should POST {..., region_override: snapshot}. DEEP-MERGE BUG RCA — _deep_merge recurses into any dict vs dict pair, so passing {} leaves base untouched. A single-level replace for known leaf-dict fields (category_overrides, item_overrides, tiers already handled because it's a list) would fix it."
+}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban, Palette, Filter, MapPin } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge, Ban, Palette, Filter, MapPin, Receipt } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const sidebarLinks = [
@@ -17,6 +17,7 @@ const sidebarLinks = [
   { label: "86 / Sold-Out", path: "/admin/86", icon: Ban },
   { label: "Storefront", path: "/admin/storefront", icon: Palette },
   { label: "Store Profile", path: "/admin/store-profile", icon: MapPin },
+  { label: "Tax & Charges", path: "/admin/fees", icon: Receipt },
   { label: "Menu & Search", path: "/admin/catalog-settings", icon: Filter },
   { label: "Orders", path: "/admin/orders", icon: ClipboardList },
   { label: "Printers", path: "/admin/printers", icon: Printer },
