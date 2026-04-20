@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import axios from "axios";
 import {
   ArrowLeft, ArrowRight, Truck, Store, Utensils, MapPin, Clock,
   CreditCard, Lock, Tag, CheckCircle2, AlertCircle, Loader2, X,
@@ -24,6 +25,7 @@ const STEPS = [
 
 const TAX_RATE = 0.0875;
 const DELIVERY_FEE = 4.99;
+const API = "/api";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ export default function CheckoutPage() {
   });
   const [tableNumber, setTableNumber] = useState("");
   const [slot, setSlot] = useState("ASAP");
+  const [eta, setEta] = useState(null);
   const [tip, setTip] = useState(0);
   const [tipMode, setTipMode] = useState("none");
   const [promoCode, setPromoCode] = useState(cartPromo?.code || "");
@@ -63,6 +66,22 @@ export default function CheckoutPage() {
     }
     // eslint-disable-next-line
   }, [user]);
+
+  useEffect(() => {
+    // Fetch live ETA based on current cart categories/items
+    const itemIds = items.map((i) => i.id || i.item_id).filter(Boolean);
+    const categories = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
+    if (itemIds.length === 0 && categories.length === 0) { setEta(null); return; }
+    axios.post(`${API}/store/eta`, { item_ids: itemIds, categories })
+      .then(({ data }) => setEta(data))
+      .catch(() => setEta(null));
+  }, [items]);
+
+  useEffect(() => {
+    if (eta && !eta.asap_available && slot === "ASAP") {
+      setSlot(eta.next_available_slot || "ASAP");
+    }
+  }, [eta]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchParams.get("cancelled") === "1") {
@@ -365,7 +384,7 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <OrderSummaryCard items={items} pricing={pricing} fulfillment={fulfillment} slot={slot} />
+          <OrderSummaryCard items={items} pricing={pricing} fulfillment={fulfillment} slot={slot} eta={eta} />
         </div>
       </div>
     </div>
@@ -685,7 +704,7 @@ function PaymentStep({
   );
 }
 
-function OrderSummaryCard({ items, pricing, fulfillment, slot }) {
+function OrderSummaryCard({ items, pricing, fulfillment, slot, eta }) {
   return (
     <div className="lg:col-span-2 mt-6 lg:mt-0">
       <div
@@ -729,8 +748,14 @@ function OrderSummaryCard({ items, pricing, fulfillment, slot }) {
           <span className="text-base font-bold text-brand-text">Total</span>
           <span data-testid="summary-total" className="text-2xl font-bold text-brand-text">${pricing.total.toFixed(2)}</span>
         </div>
-        <div className="mt-2 font-body text-[11px] text-brand-text-secondary">
-          {slot === "ASAP" ? `Arriving ${fulfillment === "delivery" ? "in ~30 min" : "in ~20 min"}` : `Scheduled · ${slot}`}
+        <div className="mt-2 font-body text-[11px] text-brand-text-secondary" data-testid="summary-eta">
+          {eta && !eta.asap_available && eta.next_available_slot ? (
+            <span className="text-amber-700 font-semibold">Next available slot: {new Date(eta.next_available_slot).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+          ) : eta && eta.asap_available ? (
+            eta.eta_label
+          ) : (
+            slot === "ASAP" ? `Arriving ${fulfillment === "delivery" ? "in ~30 min" : "in ~20 min"}` : `Scheduled · ${slot}`
+          )}
         </div>
       </div>
     </div>

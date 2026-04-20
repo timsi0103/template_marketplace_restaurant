@@ -71,6 +71,11 @@ async def payment_status(session_id: str, request: Request):
                 {"$set": {"payment_status": "paid", "status": "pending", "updated_at": now_iso}},
             )
             await _auto_queue_for_order(order_id, "placement")
+            try:
+                from routes.throttle import maybe_auto_pause
+                await maybe_auto_pause()
+            except Exception:
+                pass
             paid_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
             if paid_order and paid_order.get("promo_applied"):
                 await db.promo_codes.update_one(

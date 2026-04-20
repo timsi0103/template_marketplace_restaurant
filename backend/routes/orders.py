@@ -187,6 +187,24 @@ async def create_order(body: OrderCreate, request: Request):
     order_number = _make_order_number()
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    # Compute a smart estimated_minutes from current kitchen load + item prep times
+    try:
+        from routes.throttle import _compute_eta_payload
+        cats = list({(it.get("name") and it.get("name")) for it in items_enriched})  # dummy placeholder
+        cats = []
+        for it in items_enriched:
+            prod = await db.menu_items.find_one({"id": it["item_id"]}, {"_id": 0, "category": 1})
+            if prod and prod.get("category"):
+                cats.append(prod["category"])
+        eta_payload = await _compute_eta_payload(cats)
+        estimated = int(eta_payload.get("eta_minutes") or 0)
+        if body.fulfillment_type == "delivery":
+            estimated += 15  # add driving buffer
+        if estimated <= 0:
+            estimated = 30 if body.fulfillment_type == "delivery" else 20
+    except Exception:
+        estimated = 30 if body.fulfillment_type == "delivery" else 20
+
     order_doc = {
         "id": order_id, "order_number": order_number, "user_id": user_id,
         "contact_email": body.contact_email,
@@ -200,7 +218,7 @@ async def create_order(body: OrderCreate, request: Request):
         **totals,
         "status": "pending",
         "payment_status": "initiated",
-        "estimated_minutes": 30 if body.fulfillment_type == "delivery" else 20,
+        "estimated_minutes": estimated,
         "created_at": now_iso, "updated_at": now_iso,
     }
 

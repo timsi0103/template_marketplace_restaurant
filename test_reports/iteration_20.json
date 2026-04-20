@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 20 — Prep Time Estimation & Order Throttling. Backend: 18/18 new pytest tests pass covering POST /api/store/eta (categories + item_ids + empty), GET/PATCH /admin/throttle/settings (auth + validation on max_concurrent_orders/slot_granularity/base_buffer/auto_pause), GET /admin/throttle/status shape, at_capacity transition (cap<active → asap_available=false, next_available_slot in future), GET/PUT /admin/prep-times DRY-verified against kds_settings collection, maybe_auto_pause() direct invocation flips store pause_ordering and /store/eta reflects paused:true, order creation derives estimated_minutes from ETA (not hardcoded), regression smoke on /admin/queue/live /admin/printers /search/menu /admin/analytics/summary. Frontend: /admin/throttle page fully functional (all 10 required testids present, 10 prep-rows render, badge shows 'Normal', load shows '2/15 active 13%', base_buffer edit persists across reload); /admin/queue throttle-banner renders with data-state='normal' and text 'Normal — accepting ASAP orders 2 / 15 · 13%'; 'Prep & Throttle' sidebar link routes to /admin/throttle; /checkout summary-eta displays 'Ready in ~20 min' wired to /api/store/eta.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_throttle.py",
+    "/app/test_reports/pytest/iteration_20_throttle.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED BY TESTER: /app/frontend/src/pages/admin/AdminLiveQueue.js had 40 lines of orphan JSX garbage after the proper closing brace (line 374+ starting with 'y-6 border border-dashed...') causing a SyntaxError: Missing semicolon (374:3) that prevented the entire frontend from compiling. Deleted lines 374-414; file now ends cleanly at line 373 with '}'.",
+    "FIXED BY TESTER: /app/frontend/src/pages/admin/AdminLiveQueue.js referenced `throttle` and `setThrottle` (lines 89, 205, 208-223) but never declared `const [throttle, setThrottle] = useState(null);`. Caused PAGEERROR 'throttle is not defined' on /admin/queue which suppressed throttle-banner rendering. Added the useState hook after sortBy.",
+    "Good: /store/eta public endpoint correctly resolves categories from item_ids by reading menu_items.category; accepts empty body (default 10 min eta).",
+    "Good: capacity_state computation is clean — ratio>=1 → at_capacity, 0.7-1 → busy, else normal; paused short-circuits to 'paused'.",
+    "Good: next_available_slot correctly computes rounded-up granularity with spacing buffer, returns ISO8601 UTC.",
+    "Good: maybe_auto_pause is idempotent via Mongo filter {pause_ordering:{$ne:true}} — will only flip if currently false. Per spec, does NOT auto-unpause (explicit admin action required).",
+    "Good: PUT /admin/prep-times proxies to kds_settings collection for DRY (verified via direct Mongo read — test asserts kds_settings.target_prep_minutes_by_category.test_cat_zzz == 17 after PUT).",
+    "Good: order creation pipeline uses _compute_eta_payload for estimated_minutes. Verified order doc has estimated_minutes within ±10 of /store/eta for same category.",
+    "Nit: throttle.py line 88 defaults cap to 15 when stored value is 0/None — acceptable but worth documenting.",
+    "Nit: _next_slot_iso uses target.minute % granularity; if granularity=60 and minute=0 but second/microsecond > 0, still advances — correct behavior.",
+    "Nit: Auto-pause is only triggered from payments.py payment-status transition; if orders change state through admin/advance without re-entering paid state, threshold won't be re-evaluated. Acceptable per spec."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_throttle.py (new — 18 tests)",
+    "/app/frontend/src/pages/admin/AdminLiveQueue.js (fixed: removed orphan JSX lines 374-414; added missing const [throttle,setThrottle]=useState(null))"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (throttle page, banner, sidebar, checkout ETA all verified)"},
+  "test_credentials": {"admin": {"email": "admin@culinaryeditorial.com", "password": "Admin123!"}},
+  "seed_data_creation": "Seeded up to 5 TEST_THR_* paid orders (pending/preparing) via direct MongoDB insert for at_capacity + auto_pause tests. Module-scope teardown fixture restores throttle settings to admin's pre-test values, unpauses store, and deletes all seeded orders by id.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Throttle endpoints live at /api/store/eta (public POST), /api/admin/throttle/settings (GET/PATCH), /api/admin/throttle/status (GET), /api/admin/prep-times (GET/PUT). Throttle config in db.app_settings key='throttle_settings' (defaults: max_concurrent_orders=15, auto_pause_threshold=0, slot_granularity_minutes=15, base_buffer_minutes=5). Prep times reuse db.kds_settings.target_prep_minutes_by_category. Store pause flag at db.store_settings {type:'hours', pause_ordering:bool}. Frontend testids — /admin/throttle: admin-throttle-page, throttle-state-badge, throttle-load, max-concurrent-input, auto-pause-input, slot-granularity-select, base-buffer-input, save-throttle-btn, toggle-pause-btn, prep-row-<cat>, prep-input-<cat>, prep-remove-<cat>, new-category-input, add-category-btn. /admin/queue: throttle-banner (data-state attr). /checkout: summary-eta. Side effect warning: tests may briefly change max_concurrent_orders=1 and auto_pause_threshold=1; teardown restores defaults but if a run is killed mid-test remaining TEST_THR_ orders could remain — clean with db.orders.delete_many({id:/^TEST_THR_/}).",
+  "rca of the issue": "Two frontend compile-time bugs detected and auto-fixed: (1) AdminLiveQueue.js had a botched prior edit leaving 40 lines of orphan JSX starting 'y-6 border border-dashed...' after the proper function close, producing 'Missing semicolon (374:3)' — entire frontend failed to compile. (2) Even after removing orphan code, `throttle` state variable was referenced but never declared; missing const [throttle,setThrottle] = useState(null); caused runtime ReferenceError that suppressed throttle-banner. Both fixed and verified."
+}

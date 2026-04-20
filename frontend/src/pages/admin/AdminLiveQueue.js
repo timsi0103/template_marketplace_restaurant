@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "sonner";
 import {
   Bell, BellOff, Settings, RefreshCw, DollarSign, Clock, ShoppingBag,
-  Loader2, Truck, Store, Utensils, Filter, CheckCircle2, Zap,
+  Loader2, Truck, Store, Utensils, Filter, CheckCircle2, Zap, Gauge, Pause,
 } from "lucide-react";
 import OrderCard from "@/components/queue/OrderCard";
 import RejectDialog from "@/components/queue/RejectDialog";
@@ -57,6 +57,7 @@ export default function AdminLiveQueue() {
   // Filters
   const [fulfillFilter, setFulfillFilter] = useState("all");
   const [sortBy, setSortBy] = useState("placed_asc");
+  const [throttle, setThrottle] = useState(null);
 
   const fetchQueue = useCallback(async (opts = {}) => {
     try {
@@ -83,6 +84,11 @@ export default function AdminLiveQueue() {
       seenIdsRef.current = new Set(fresh.map((o) => o.id));
       setOrders(fresh);
       setSummary(data.summary || null);
+      // Pull throttle status in parallel-ish (best effort)
+      try {
+        const { data: st } = await axios.get(`${API}/admin/throttle/status`, { withCredentials: true });
+        setThrottle(st);
+      } catch { /* ignore */ }
     } catch { /* swallow during poll */ }
     finally { setLoading(false); }
   }, []);
@@ -196,6 +202,28 @@ export default function AdminLiveQueue() {
 
   return (
     <div data-testid="admin-live-queue-page" className="p-4 sm:p-6 lg:p-8 max-w-[1800px]">
+      {/* Throttle banner */}
+      {throttle && (
+        <div
+          data-testid="throttle-banner"
+          data-state={throttle.state}
+          className={`mb-3 flex items-center justify-between gap-3 px-4 py-2 rounded-lg border text-sm ${
+            throttle.state === "paused" ? "bg-gray-100 border-gray-300 text-gray-700" :
+            throttle.state === "at_capacity" ? "bg-red-50 border-red-200 text-red-700" :
+            throttle.state === "busy" ? "bg-amber-50 border-amber-100 text-amber-800" :
+            "bg-green-50 border-green-200 text-green-700"
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 font-semibold">
+            {throttle.state === "paused" ? <Pause size={14} /> : <Gauge size={14} />}
+            {throttle.state === "at_capacity" ? "At capacity — customers see scheduled slots"
+              : throttle.state === "busy" ? "Busy — approaching capacity"
+              : throttle.state === "paused" ? "Ordering paused — customers can't place new orders"
+              : "Normal — accepting ASAP orders"}
+          </span>
+          <span className="text-xs font-mono">{throttle.active_count} / {throttle.max_concurrent_orders} · {Math.round((throttle.utilization || 0) * 100)}%</span>
+        </div>
+      )}
       {/* Pinned summary bar */}
       <div className="sticky top-0 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-brand-bg/90 backdrop-blur border-b border-brand-border mb-5">
         <div className="flex items-center justify-between gap-3 flex-wrap">

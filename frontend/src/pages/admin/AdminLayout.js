@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
-import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap } from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, Users, Settings, LogOut, FolderTree, SlidersHorizontal, Layers, Clock, Ticket, ChefHat, Printer, History, BarChart3, Zap, Gauge } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const sidebarLinks = [
@@ -13,6 +13,7 @@ const sidebarLinks = [
   { label: "Coupons", path: "/admin/coupons", icon: Ticket },
   { label: "Kitchen (KDS)", path: "/admin/kds-settings", icon: ChefHat },
   { label: "Live Queue", path: "/admin/queue", icon: Zap },
+  { label: "Prep & Throttle", path: "/admin/throttle", icon: Gauge },
   { label: "Orders", path: "/admin/orders", icon: ClipboardList },
   { label: "Printers", path: "/admin/printers", icon: Printer },
   { label: "Print Settings", path: "/admin/print-settings", icon: Settings },
