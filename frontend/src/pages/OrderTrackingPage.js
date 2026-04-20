@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Package, MapPin, Clock, CheckCircle2, ChefHat, Truck, Utensils,
-  AlertCircle, Loader2, CircleDot, Store, PhoneCall, Mail,
+  AlertCircle, Loader2, CircleDot, Store, PhoneCall, Mail, Printer,
 } from "lucide-react";
 
 const POLL_INTERVAL = 10000;
@@ -268,6 +268,15 @@ export default function OrderTrackingPage() {
             className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full hover:bg-brand-surface transition inline-flex items-center gap-2"
           >
             <Package size={14} /> All orders
+          </Link>
+          <Link
+            to={`/receipt/${order.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="tracking-print-receipt-btn"
+            className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full hover:bg-brand-surface transition inline-flex items-center gap-2"
+          >
+            <Printer size={14} /> Print receipt
           </Link>
           <Link
             to={`/orders?reorder=${order.id}`}

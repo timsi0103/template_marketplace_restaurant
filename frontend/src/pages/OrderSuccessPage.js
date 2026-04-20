@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight, Mail, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, AlertCircle, Truck, Store, Utensils, MapPin, Package, ArrowRight, Mail, ChevronDown, ChevronUp, Printer } from "lucide-react";
 
 const POLL_INTERVAL = 2000;
 const MAX_ATTEMPTS = 10;
@@ -219,6 +219,15 @@ export default function OrderSuccessPage() {
             className="px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover transition inline-flex items-center justify-center gap-2"
           >
             <Package size={16} /> Track your order
+          </Link>
+          <Link
+            to={`/receipt/${orderIdParam || order.id || ""}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="print-receipt-btn"
+            className="px-6 py-3 border border-brand-border text-brand-text font-body text-sm font-medium rounded-full hover:bg-brand-surface transition inline-flex items-center justify-center gap-2"
+          >
+            <Printer size={16} /> Print receipt
           </Link>
           <Link
             to="/menu"

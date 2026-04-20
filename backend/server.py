@@ -1179,6 +1179,7 @@ async def payment_status(session_id: str, request: Request):
                     "updated_at": now_iso,
                 }},
             )
+            await _auto_queue_for_order(order_id, "placement")
             # ─── Increment promo_codes.usage_count if this order used one ─
             paid_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
             if paid_order and paid_order.get("promo_applied"):
@@ -1513,6 +1514,7 @@ async def admin_accept_order(order_id: str, request: Request):
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Order not found")
+    await _auto_queue_for_order(order_id, "acceptance")
     order = await db.orders.find_one({"id": order_id}, {"_id": 0})
     return order
 
@@ -1699,6 +1701,292 @@ async def kds_bump_order(order_id: str, request: Request):
         {"$set": {"status": next_status, "bumped_at": now_iso, "updated_at": now_iso}},
     )
     return await db.orders.find_one({"id": order_id}, {"_id": 0})
+
+
+# ─── Printers / Ticket Printing ────────────────────────────
+
+DEFAULT_PRINT_SETTINGS = {
+    "key": "print_settings",
+    "auto_trigger": "on_acceptance",   # on_placement | on_acceptance | off
+    "auto_receipt": True,               # queue customer receipt jobs automatically
+    "updated_at": None,
+}
+
+PRINTER_MODELS = [
+    "epson_tm_t20", "epson_tm_t88", "epson_tm_m30",
+    "star_tsp100", "star_tsp650", "star_sm_s230i",
+    "generic_80mm", "generic_58mm",
+]
+
+class PrinterBody(BaseModel):
+    name: str
+    ip: Optional[str] = ""
+    model: str = "generic_80mm"
+    station: str = "kitchen"         # kitchen | bar | receipt | <free>
+    is_online: bool = True
+
+class PrinterPatchBody(BaseModel):
+    name: Optional[str] = None
+    ip: Optional[str] = None
+    model: Optional[str] = None
+    station: Optional[str] = None
+    is_online: Optional[bool] = None
+
+class PrintSettingsBody(BaseModel):
+    auto_trigger: Optional[str] = None   # on_placement | on_acceptance | off
+    auto_receipt: Optional[bool] = None
+
+class PrintOrderBody(BaseModel):
+    ticket_type: str = "kitchen"         # kitchen | receipt
+    printer_id: Optional[str] = None
+    trigger: str = "manual"              # manual | reprint | test | auto_placement | auto_acceptance
+
+
+async def _get_print_settings() -> dict:
+    doc = await db.print_settings.find_one({"key": "print_settings"}, {"_id": 0})
+    if not doc:
+        doc = dict(DEFAULT_PRINT_SETTINGS)
+        doc["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.print_settings.insert_one(doc)
+        doc = await db.print_settings.find_one({"key": "print_settings"}, {"_id": 0})
+    return doc
+
+
+def _build_ticket_payload(order: dict, ticket_type: str, printer: Optional[dict] = None) -> dict:
+    """Shape the data that the frontend will render as an 80mm ticket."""
+    return {
+        "ticket_type": ticket_type,
+        "order": order,
+        "printer": printer,
+        "printed_at": datetime.now(timezone.utc).isoformat(),
+        "brand": {"name": "The Culinary Editorial", "tagline": "Seasonal · Considered · Crafted"},
+    }
+
+
+async def _resolve_printers_for_order(order: dict) -> List[dict]:
+    """Return list of kitchen printers that should receive a ticket for this order,
+    based on KDS station_routing and online printers."""
+    kds = await db.kds_settings.find_one({"key": "kds_settings"}, {"_id": 0}) or {}
+    routing = kds.get("station_routing", {}) or {}
+    # Collect categories present in order (lowercased)
+    order_cats = set()
+    for it in order.get("items", []):
+        cat = (it.get("category") or "").lower()
+        if not cat:
+            mi = await db.menu_items.find_one({"id": it.get("item_id")}, {"_id": 0, "category": 1})
+            cat = (mi or {}).get("category", "").lower()
+        if cat:
+            order_cats.add(cat)
+    # Find stations whose categories intersect with order categories
+    stations_hit = [s for s, cats in routing.items() if set(c.lower() for c in cats) & order_cats]
+    # If nothing matches, fall back to all kitchen-station printers so tickets still print
+    printers_cur = db.printers.find({"is_online": True}, {"_id": 0})
+    all_online = await printers_cur.to_list(50)
+    if stations_hit:
+        matched = [p for p in all_online if (p.get("station", "").lower() in stations_hit)]
+        if matched:
+            return matched
+    # Fallback: all online kitchen printers
+    return [p for p in all_online if p.get("station", "").lower() == "kitchen"]
+
+
+async def _queue_print_job(order_id: str, printer: Optional[dict], ticket_type: str, trigger: str) -> dict:
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    job = {
+        "id": str(uuid.uuid4()),
+        "order_id": order_id,
+        "order_number": order.get("order_number", ""),
+        "printer_id": (printer or {}).get("id"),
+        "printer_name": (printer or {}).get("name", "—"),
+        "printer_station": (printer or {}).get("station"),
+        "ticket_type": ticket_type,
+        "trigger": trigger,
+        "status": "queued",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.print_jobs.insert_one(job)
+    return {k: v for k, v in job.items() if k != "_id"}
+
+
+# ─── Admin: Printers CRUD ─────────────────────────────────
+
+@api_router.get("/admin/printers")
+async def list_printers(request: Request):
+    await require_admin(request)
+    docs = await db.printers.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return {"printers": docs, "models": PRINTER_MODELS}
+
+@api_router.post("/admin/printers")
+async def create_printer(body: PrinterBody, request: Request):
+    await require_admin(request)
+    if not body.name.strip():
+        raise HTTPException(status_code=400, detail="Name required")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": body.name.strip(),
+        "ip": (body.ip or "").strip(),
+        "model": body.model,
+        "station": (body.station or "kitchen").strip().lower() or "kitchen",
+        "is_online": bool(body.is_online),
+        "last_test_at": None,
+        "created_at": now_iso,
+        "updated_at": now_iso,
+    }
+    await db.printers.insert_one(dict(doc))
+    return doc
+
+@api_router.patch("/admin/printers/{printer_id}")
+async def update_printer(printer_id: str, body: PrinterPatchBody, request: Request):
+    await require_admin(request)
+    updates: Dict[str, Any] = {}
+    if body.name is not None: updates["name"] = body.name.strip()
+    if body.ip is not None: updates["ip"] = body.ip.strip()
+    if body.model is not None: updates["model"] = body.model
+    if body.station is not None: updates["station"] = body.station.strip().lower() or "kitchen"
+    if body.is_online is not None: updates["is_online"] = bool(body.is_online)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No changes")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    res = await db.printers.update_one({"id": printer_id}, {"$set": updates})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Printer not found")
+    return await db.printers.find_one({"id": printer_id}, {"_id": 0})
+
+@api_router.delete("/admin/printers/{printer_id}")
+async def delete_printer(printer_id: str, request: Request):
+    await require_admin(request)
+    res = await db.printers.delete_one({"id": printer_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Printer not found")
+    return {"ok": True}
+
+@api_router.post("/admin/printers/{printer_id}/test")
+async def test_printer(printer_id: str, request: Request):
+    await require_admin(request)
+    printer = await db.printers.find_one({"id": printer_id}, {"_id": 0})
+    if not printer:
+        raise HTTPException(status_code=404, detail="Printer not found")
+    if not printer.get("is_online"):
+        raise HTTPException(status_code=400, detail="Printer is offline — turn it on first")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.printers.update_one({"id": printer_id}, {"$set": {"last_test_at": now_iso, "updated_at": now_iso}})
+    # Log a synthetic test job
+    job = {
+        "id": str(uuid.uuid4()),
+        "order_id": None,
+        "order_number": "TEST-PRINT",
+        "printer_id": printer_id,
+        "printer_name": printer.get("name"),
+        "printer_station": printer.get("station"),
+        "ticket_type": "test",
+        "trigger": "test",
+        "status": "queued",
+        "created_at": now_iso,
+    }
+    await db.print_jobs.insert_one(dict(job))
+    return {"ok": True, "last_test_at": now_iso, "job_id": job["id"]}
+
+
+# ─── Admin: Print Settings ────────────────────────────────
+
+@api_router.get("/admin/print-settings")
+async def get_print_settings(request: Request):
+    await require_admin(request)
+    return await _get_print_settings()
+
+@api_router.patch("/admin/print-settings")
+async def patch_print_settings(body: PrintSettingsBody, request: Request):
+    await require_admin(request)
+    updates: Dict[str, Any] = {}
+    if body.auto_trigger is not None:
+        if body.auto_trigger not in ("on_placement", "on_acceptance", "off"):
+            raise HTTPException(status_code=400, detail="Invalid auto_trigger")
+        updates["auto_trigger"] = body.auto_trigger
+    if body.auto_receipt is not None:
+        updates["auto_receipt"] = bool(body.auto_receipt)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No changes")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.print_settings.update_one(
+        {"key": "print_settings"}, {"$set": updates}, upsert=True,
+    )
+    return await _get_print_settings()
+
+
+# ─── Admin: Print Jobs (history) ──────────────────────────
+
+@api_router.get("/admin/print-jobs")
+async def list_print_jobs(request: Request, limit: int = 100, order_id: Optional[str] = None):
+    await require_admin(request)
+    query: Dict[str, Any] = {}
+    if order_id:
+        query["order_id"] = order_id
+    docs = await db.print_jobs.find(query, {"_id": 0}).sort("created_at", -1).to_list(max(1, min(limit, 500)))
+    return {"jobs": docs, "count": len(docs)}
+
+
+# ─── Admin: Print an order ticket (kitchen or receipt) ─────
+
+@api_router.post("/admin/orders/{order_id}/print")
+async def admin_print_order(order_id: str, body: PrintOrderBody, request: Request):
+    await require_admin(request)
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if body.ticket_type not in ("kitchen", "receipt"):
+        raise HTTPException(status_code=400, detail="ticket_type must be kitchen|receipt")
+
+    printer = None
+    if body.printer_id:
+        printer = await db.printers.find_one({"id": body.printer_id}, {"_id": 0})
+        if not printer:
+            raise HTTPException(status_code=404, detail="Printer not found")
+
+    job = await _queue_print_job(order_id, printer, body.ticket_type, body.trigger or "manual")
+    return {"job": job, "ticket": _build_ticket_payload(order, body.ticket_type, printer)}
+
+
+# ─── Public: Receipt data (for customer print pages) ───────
+
+@api_router.get("/orders/{order_id}/receipt")
+async def get_order_receipt(order_id: str):
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return _build_ticket_payload(order, "receipt", None)
+
+
+# ─── Internal: auto-trigger queue hook ────────────────────
+
+async def _auto_queue_for_order(order_id: str, trigger_stage: str):
+    """Queue kitchen tickets + receipt (if enabled) based on print_settings."""
+    try:
+        settings = await _get_print_settings()
+        mode = settings.get("auto_trigger", "off")
+        stage_match = (
+            (mode == "on_placement" and trigger_stage == "placement") or
+            (mode == "on_acceptance" and trigger_stage == "acceptance")
+        )
+        if not stage_match:
+            return
+        order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+        if not order:
+            return
+        # Kitchen tickets → routed printers
+        printers = await _resolve_printers_for_order(order)
+        for p in printers:
+            await _queue_print_job(order_id, p, "kitchen", f"auto_{trigger_stage}")
+        # Receipt ticket → first online receipt-station printer (if auto_receipt enabled)
+        if settings.get("auto_receipt", True):
+            receipt_printer = await db.printers.find_one(
+                {"station": "receipt", "is_online": True}, {"_id": 0}
+            )
+            await _queue_print_job(order_id, receipt_printer, "receipt", f"auto_{trigger_stage}")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"auto_queue failed for {order_id}: {e}")
 
 
 @api_router.get("/admin/dashboard")

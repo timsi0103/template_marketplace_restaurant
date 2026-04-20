@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Package, Star, Truck, Store, Utensils, Search, Mail, ArrowRight,
-  RotateCcw, ShoppingBag, CheckCircle2, Clock, AlertCircle, Loader2, X,
+  RotateCcw, ShoppingBag, CheckCircle2, Clock, AlertCircle, Loader2, X, Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
@@ -361,6 +361,17 @@ function OrderRow({ order, onReorder, onToggleFavorite, showFavoriteToggle, reor
             >
               <RotateCcw size={12} /> Reorder
             </button>
+            <Link
+              to={`/receipt/${order.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              data-testid={`print-receipt-btn-${order.order_number}`}
+              className="p-2 rounded-full border border-brand-border text-brand-text-secondary hover:text-brand-primary hover:border-brand-primary/40 transition"
+              aria-label="Print receipt"
+            >
+              <Printer size={12} />
+            </Link>
             <Link
               to={`/orders/track/${order.id}`}
               data-testid={`order-detail-link-${order.order_number}`}
