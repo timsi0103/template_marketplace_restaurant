@@ -182,7 +182,7 @@ async def generate_daily_summary(body: GenerateRequest, request: Request):
         snapshot["delivery_status"] = log_entry["status"]
         logger.info(f"[daily-summary MOCKED] {snapshot['date']} → {recipients or '(no recipients)'}")
 
-    # Upsert by date (latest wins) — keep history of snapshot ids though
+    # Snapshot is appended (history keeps every generation — even multiple for the same day).
     await db.daily_summaries.insert_one(dict(snapshot))
     return {"snapshot": snapshot, "mocked_email": body.send_email, "recipients": recipients}
 

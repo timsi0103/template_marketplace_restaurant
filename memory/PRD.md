@@ -35,7 +35,16 @@
 27. Sales Dashboard & Reports (Feb 2026)
 28. Store Profile & Branding Configuration (Feb 2026)
 29. Operating Hours & Holiday Management (Feb 2026)
-30. Tax & Service Charge Configuration (Feb 2026 — current)
+30. Tax & Service Charge Configuration (Feb 2026)
+31. Daily Summary & End-of-Day Report (Feb 2026 — current)
+
+### Phase 31 - Daily Summary & End-of-Day Report (Feb 2026)
+- [x] Backend `routes/daily_summary.py` (new): `GET /api/admin/daily-summary?date=` (live compute), `POST /generate` (archives a snapshot + optional MOCKED email), `GET /history` with `date_from`/`date_to` filter, `GET/DELETE /{sid}`, delivery-settings (`/delivery-settings`) GET/PATCH with {enabled, recipients, send_at HH:MM, format pdf|html|csv}. Router ordering fixed so `/delivery-settings` isn't captured by `/{sid}`.
+- [x] Summary payload: orders, revenue, AOV, tips, fulfillment mix, top 5 items, refunds, cancellations, customers (new/returning/ratio), compare_last_week (same-day WoW deltas) + compare_last_month (MTD vs prev-month MTD).
+- [x] Frontend `/admin/daily-summary` (sidebar "Daily Summary", FileText icon): date picker + Today / Refresh / Print / Generate snapshot / Generate & email action bar, full summary content with KPIs & delta pills, fulfillment-mix card, customers new/returning bar, top-5 items, refunds/cancellations, WoW + MoM comparison cards, report-history list (search, view, JSON download, delete) + delivery-settings card (recipients chips, time, format, enable/disable, MOCKED badge).
+- [x] Print-friendly mode: `?print=1` renders the same page with sidebar/action bar hidden (via `@media print` + `data-print-hide`) and auto-triggers `window.print()` after 500ms.
+- [x] Email delivery is MOCKED (delivery_log persists mocked:true, logger records send).
+- [x] Tested: 17/17 backend pytest pass, full scripted frontend flow validated including generate → history row → print mode → delivery-settings add/save. 0 bugs.
 
 ### Phase 30 - Tax & Service Charge Configuration (Feb 2026)
 - [x] Backend `routes/fees.py` (new): multi-jurisdiction **Region CRUD** (`/admin/fees/regions`) with default region auto-seeded; each region owns tax (name/rate/inclusive + category + item overrides), service_charge, packaging_fee, eco_fee, delivery_rules (flat/distance/tiered with min_order).
