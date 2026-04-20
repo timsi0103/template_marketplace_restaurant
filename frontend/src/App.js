@@ -45,6 +45,7 @@ import AdminOrders from "@/pages/admin/AdminOrders";
 import AdminAnalytics from "@/pages/admin/AdminAnalytics";
 import AdminLiveQueue from "@/pages/admin/AdminLiveQueue";
 import AdminThrottle from "@/pages/admin/AdminThrottle";
+import AdminEightySix from "@/pages/admin/AdminEightySix";
 import SearchResultsPage from "@/pages/SearchResultsPage";
 import KitchenTicketPage from "@/pages/KitchenTicketPage";
 import ReceiptPage from "@/pages/ReceiptPage";
@@ -104,6 +105,7 @@ function AppRouter() {
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="queue" element={<AdminLiveQueue />} />
             <Route path="throttle" element={<AdminThrottle />} />
+            <Route path="86" element={<AdminEightySix />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="customers" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Customers</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Customer management coming soon.</p></div>} />
             <Route path="settings" element={<div className="p-10"><h1 className="font-heading text-3xl font-bold text-brand-text">Settings</h1><p className="font-body text-sm text-brand-text-secondary mt-2">Settings coming soon.</p></div>} />

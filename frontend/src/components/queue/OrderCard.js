@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { Truck, Store, Utensils, Clock, Check, X, AlertTriangle, Printer } from "lucide-react";
+import { Truck, Store, Utensils, Clock, Check, X, AlertTriangle, Printer, Ban } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
+
+const API = "/api";
 
 const FULFILL_ICON = { delivery: Truck, pickup: Store, dine_in: Utensils };
 
@@ -127,11 +131,33 @@ export default function OrderCard({
       <ul className="text-xs text-brand-text space-y-1 mb-3">
         {items.slice(0, 4).map((it, idx) => {
           const note = it.instructions || it.special_instructions;
+          const itemId = it.item_id || it.id;
+          const quick86 = async (e) => {
+            e.stopPropagation();
+            if (!itemId) return;
+            if (!window.confirm(`86 "${it.name}" — mark sold out on storefront?`)) return;
+            try {
+              await axios.post(`${API}/admin/86/items/${itemId}/toggle`, { status: "sold_out", source: "queue" }, { withCredentials: true });
+              toast.success(`${it.name} marked sold out`);
+            } catch { toast.error("Could not 86 item"); }
+          };
           return (
-            <li key={idx} className="flex items-start gap-1.5">
+            <li key={idx} className="flex items-start gap-1.5 group/item">
               <span className="font-bold text-brand-text-secondary">{it.qty || it.quantity || 1}×</span>
               <div className="flex-1 min-w-0">
-                <div className="truncate">{it.name || "Item"}{it.variant_name ? ` · ${it.variant_name}` : ""}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate flex-1">{it.name || "Item"}{it.variant_name ? ` · ${it.variant_name}` : ""}</span>
+                  {itemId && (
+                    <button
+                      data-testid={`quick-86-${order.id}-${idx}`}
+                      onClick={quick86}
+                      title="Mark sold out on storefront"
+                      className="opacity-0 group-hover/item:opacity-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded hover:bg-red-700 transition"
+                    >
+                      <Ban size={9} /> 86
+                    </button>
+                  )}
+                </div>
                 {Array.isArray(it.modifiers) && it.modifiers.length > 0 && (
                   <div className="text-[10px] text-brand-text-secondary">+ {it.modifiers.map((m) => m.name || m).join(", ")}</div>
                 )}

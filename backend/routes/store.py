@@ -106,12 +106,22 @@ async def get_store_status():
                 "hours": f"{_minutes_to_display(om)} - {_minutes_to_display(cm)}",
             }
 
-    return {
+    result = {
         "is_open": is_open, "pause_ordering": pause,
         "close_time": close_time_display, "next_open": next_open,
         "active_holiday": active_holiday, "upcoming_holidays": upcoming_holidays[:3],
         "services": service_status, "day": day_name,
     }
+    await _maybe_trigger_auto_restore(is_open)
+    return result
+
+
+async def _maybe_trigger_auto_restore(is_open_now: bool):
+    try:
+        from routes.eightysix import maybe_auto_restore
+        await maybe_auto_restore(is_open_now)
+    except Exception:
+        pass
 
 
 @api_router.get("/admin/store/hours")

@@ -20,6 +20,7 @@ import routes.printers      # noqa: F401
 import routes.search        # noqa: F401
 import routes.analytics     # noqa: F401
 import routes.throttle      # noqa: F401
+import routes.eightysix     # noqa: F401
 
 from seed import run_startup_seed
 
