@@ -27,7 +27,16 @@
 19. Order Ticket Printing / Thermal Printer (Feb 2026)
 20. Backend Refactor + Search + Analytics (Feb 2026)
 21. Real-Time Order Queue + Audio Alerts (Feb 2026)
-22. Prep Time Estimation & Order Throttling (Feb 2026 — current)
+22. Prep Time Estimation & Order Throttling (Feb 2026)
+23. Quick 86 / Sold-Out Toggle (Feb 2026 — current)
+
+### Phase 23 - Quick 86 / Sold-Out Toggle (Feb 2026)
+- [x] Backend: POST `/api/admin/86/items/{id}/toggle` (flip or explicit status), POST `/api/admin/86/batch` (by item_ids OR category), GET `/api/admin/86/log` (history), GET/PATCH `/api/admin/86/settings` (auto_restore_on_open). Every state change logged with actor + source.
+- [x] Auto-restore: hook on `/api/store/status` — when store reopens for a fresh date, all sold_out items flip to in_stock and are logged (source 'auto_restore_on_open'). Runs at most once per day.
+- [x] Frontend `/admin/86`: search, category filter, per-item toggle/restore, multi-select batch 86/restore, quick "86 all category" and "Restore all category" buttons, auto-restore switch, full history log table.
+- [x] Live Queue OrderCards: hover-revealed `86` micro-button next to every item line (visible by default on touch screens); confirm dialog + toast.
+- [x] Sidebar entry "86 / Sold-Out" (Ban icon).
+- [x] Tested: 20/20 new pytest pass; 11/11 Playwright steps pass; zero bugs found.
 
 ### Phase 22 - Prep Time & Throttling (Feb 2026)
 - [x] Backend: `POST /api/store/eta` (public) — computes ETA from cart categories/items + prep-time map + queue depth. Returns `{asap_available, eta_minutes, eta_label, capacity_state, active_count, max_concurrent_orders, paused, next_available_slot}`.

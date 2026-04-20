@@ -152,7 +152,7 @@ export default function OrderCard({
                       data-testid={`quick-86-${order.id}-${idx}`}
                       onClick={quick86}
                       title="Mark sold out on storefront"
-                      className="opacity-0 group-hover/item:opacity-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded hover:bg-red-700 transition"
+                      className="md:opacity-0 md:group-hover/item:opacity-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded hover:bg-red-700 transition"
                     >
                       <Ban size={9} /> 86
                     </button>
