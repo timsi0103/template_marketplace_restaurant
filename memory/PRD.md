@@ -38,7 +38,25 @@
 30. Tax & Service Charge Configuration (Feb 2026)
 31. Daily Summary & End-of-Day Report (Feb 2026)
 32. SEO Optimization & Structured Data (Feb 2026)
-33. Full E2E Regression Sweep (Feb 2026 — current)
+33. Full E2E Regression Sweep (Feb 2026)
+34. Order Modification & Cancellation (Feb 2026 — current)
+
+### Phase 34 - Order Modification & Cancellation (Feb 2026)
+- [x] Backend `routes/order_modification.py` (new):
+  - Public `GET /api/cancellation/config` exposes window/reasons/toggles to the storefront.
+  - Admin `GET/PATCH /api/admin/cancellation/config` with 0–120 minute cap, self-cancel toggle, auto-refund toggle, require-reason toggle, notify-on-modification toggle, modifiable/cancellable status whitelists.
+  - `GET /api/orders/{id}/cancel-eligibility` (public) — eligible flag, `seconds_remaining`, current status, reason list.
+  - `POST /api/orders/{id}/cancel` (customer) — gated on window + status + `customer_self_cancel_enabled`; records **MOCKED** refund row (`db.refunds.mocked=True`), flips `payment_status` to `refunded` when `auto_refund=True`, otherwise sets `refund_pending=True`; writes audit entry; emits 409 on already-cancelled / window-closed, 400 on invalid reason, 403 when disabled.
+  - `POST /api/admin/orders/{id}/cancel` — admin can cancel any time + optional refund bypass.
+  - `POST /api/admin/orders/{id}/modify` — re-enriches items + recomputes totals via existing `_compute_order_totals`, layers optional manual discount on top, stashes `original_total` on first price change, emits `modification_notification` for customer banner, writes audit entry. Gated on `modifiable_statuses`.
+  - `POST /api/orders/{id}/acknowledge-modification` (public) — customer dismisses the price banner; idempotent.
+  - `GET /api/admin/orders/{id}/audit` — full change log (actor id/role/name, action, old→new changes, reason, timestamp).
+  - `GET /api/admin/cancellations` — recent cancellations + reason breakdown.
+- [x] Customer UI: `<CancelOrderButton>` on `OrderTrackingPage` + `OrderSuccessPage` (amber window card with live countdown, 3-step dialog: reason radio → refund summary with amount/method/ETA → success state). Cancelled order renders dedicated `tracking-cancelled` banner. `<PriceAdjustmentBanner>` reveals old→new total + admin reason on tracking when an admin modifies.
+- [x] Admin UI:
+  - `<AdminModifyOrderDrawer>` (Sheet) on `/admin/orders` "Manage" button — items add/remove/qty, manual discount + reason, fulfillment switcher (delivery/pickup/dine_in), address/table inputs, kitchen notes, modification reason (visible to customer), audit trail, Cancel-&-refund CTA.
+  - `/admin/cancellations` (sidebar "Cancellations", XCircle icon) — policy card (5 toggles + window input), reason-breakdown bars, recent-cancellations table with refund badges.
+- [x] Tested: 25/25 backend pytest pass (`test_order_modification.py`). Testing agent validated full customer + admin flows end-to-end with zero bugs found; refund correctly MOCKED (`db.refunds.mocked=true`, `payment_status=refunded`, no Stripe call) per user choice (option c).
 
 ### Phase 33 - Full E2E Regression Sweep (Feb 2026)
 - [x] Ran complete backend pytest suite across all 32 phases: **454/460 pass (98.7%)** after test-hygiene cleanup. All 6 remaining failures are outdated test expectations / stale seed data, not product bugs — see /app/test_reports/iteration_32.json for RCA.
