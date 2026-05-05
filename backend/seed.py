@@ -129,46 +129,27 @@ async def run_startup_seed():
             })
     logger.info(f"Promo codes seeded (total in DB after seed: {await db.promo_codes.count_documents({})})")
 
-    # Subcategory backfill
-    try:
-        import random as _r
-        parents = await db.categories.find({"parent_id": None}, {"_id": 0, "id": 1, "slug": 1}).to_list(200)
-        for p in parents:
-            subs = await db.categories.find(
-                {"parent_id": p["id"], "visible": {"$ne": False}},
-                {"_id": 0, "slug": 1, "name": 1},
-            ).to_list(50)
-            if not subs:
-                continue
-            needing = await db.menu_items.find(
-                {"category": p["slug"], "$or": [{"subcategory": {"$exists": False}}, {"subcategory": None}, {"subcategory": ""}]},
-                {"_id": 0, "id": 1},
-            ).to_list(500)
-            for item in needing:
-                choice = _r.choice(subs)["slug"]
-                await db.menu_items.update_one({"id": item["id"]}, {"$set": {"subcategory": choice}})
-        logger.info("Backfilled subcategories on existing menu items (if missing)")
-    except Exception as e:
-        logger.warning(f"Subcategory backfill skipped: {e}")
-
-    # Dietary tag backfill (idempotent — only sets if missing)
-    dietary_map = {
-        "item-001": ["halal"],
-        "item-002": ["vegetarian", "nut_free"],
-        "item-003": ["vegan", "gluten_free", "dairy_free", "nut_free"],
-        "item-004": ["vegetarian", "spicy"],
-        "item-005": ["vegetarian"],
-        "item-006": ["vegetarian"],
-        "item-007": ["halal", "spicy", "dairy_free"],
-        "item-008": ["vegan", "gluten_free", "dairy_free", "nut_free"],
-        "item-009": ["vegetarian", "gluten_free"],
-        "item-010": ["vegan", "gluten_free", "dairy_free", "nut_free"],
+    # Subcategory + dietary backfill — explicit, idempotent, repairs incorrect prior data
+    # Each seed item gets its semantically-correct subcategory and dietary tags so vegetarian
+    # filters don't show meat/seafood and vice-versa.
+    SEED_TAXONOMY = {
+        "item-001": {"subcategory": "meat",         "dietary_tags": ["halal"]},
+        "item-002": {"subcategory": "small-plates", "dietary_tags": ["vegetarian", "nut_free"]},
+        "item-003": {"subcategory": "vegetarian",   "dietary_tags": ["vegan", "vegetarian", "gluten_free", "dairy_free", "nut_free"]},
+        "item-004": {"subcategory": "meat",         "dietary_tags": ["spicy"]},                # 'nduja salami → not vegetarian
+        "item-005": {"subcategory": "pastries",     "dietary_tags": ["vegetarian"]},
+        "item-006": {"subcategory": "vegetarian",   "dietary_tags": ["vegetarian"]},
+        "item-007": {"subcategory": "small-plates", "dietary_tags": ["halal", "spicy", "dairy_free"]},
+        "item-008": {"subcategory": "sparkling",    "dietary_tags": ["vegan", "gluten_free", "dairy_free", "nut_free"]},
+        "item-009": {"subcategory": "pastries",     "dietary_tags": ["vegetarian"]},
+        "item-010": {"subcategory": "non-alcoholic","dietary_tags": ["vegan", "gluten_free", "dairy_free", "nut_free"]},
     }
-    for iid, tags in dietary_map.items():
+    for iid, fix in SEED_TAXONOMY.items():
         await db.menu_items.update_one(
-            {"id": iid, "$or": [{"dietary_tags": {"$exists": False}}, {"dietary_tags": []}, {"dietary_tags": None}]},
-            {"$set": {"dietary_tags": tags}},
+            {"id": iid},
+            {"$set": {"subcategory": fix["subcategory"], "dietary_tags": fix["dietary_tags"]}},
         )
+    logger.info("Reconciled subcategory + dietary tags for seed items")
 
     # Test credentials file
     creds_dir = Path("/app/memory")
