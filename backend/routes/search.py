@@ -58,6 +58,9 @@ async def search_menu(
     if in_stock_only:
         query["status"] = {"$ne": "sold_out"}
 
+    # Customer-facing search hides archived items
+    query["is_archived"] = {"$ne": True}
+
     sort_spec = SORT_WHITELIST.get(sort, SORT_WHITELIST["popularity"])
     cursor = db.menu_items.find(query, {"_id": 0}).sort(sort_spec).limit(limit)
     items = await cursor.to_list(limit)

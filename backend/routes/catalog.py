@@ -15,12 +15,18 @@ from models import (
 # ─── Menu items ──────────────────────────────────────────
 
 @api_router.get("/menu/items")
-async def get_menu_items(category: Optional[str] = None, subcategory: Optional[str] = None):
-    query = {}
+async def get_menu_items(
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None,
+    include_archived: bool = False,
+):
+    query: dict = {}
     if category and category != "all":
         query["category"] = category
     if subcategory and subcategory != "all":
         query["subcategory"] = subcategory
+    if not include_archived:
+        query["is_archived"] = {"$ne": True}
     items = await db.menu_items.find(query, {"_id": 0}).to_list(200)
     return {"items": items, "count": len(items)}
 
@@ -29,6 +35,8 @@ async def get_menu_items(category: Optional[str] = None, subcategory: Optional[s
 async def get_menu_item(item_id: str):
     item = await db.menu_items.find_one({"id": item_id}, {"_id": 0})
     if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if item.get("is_archived"):
         raise HTTPException(status_code=404, detail="Item not found")
     return item
 
@@ -194,6 +202,35 @@ async def toggle_item_availability(item_id: str, request: Request):
     new_status = "sold_out" if item.get("status") == "in_stock" else "in_stock"
     await db.menu_items.update_one({"id": item_id}, {"$set": {"status": new_status, "available": new_status == "in_stock"}})
     return await db.menu_items.find_one({"id": item_id}, {"_id": 0})
+
+
+@api_router.patch("/admin/menu/items/{item_id}/archive")
+async def archive_item(item_id: str, request: Request):
+    """Soft-delete: hides item from customers but preserves history (orders, reviews)."""
+    await require_admin(request)
+    item = await db.menu_items.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    await db.menu_items.update_one({"id": item_id}, {"$set": {
+        "is_archived": True,
+        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "available": False,
+    }})
+    return {"id": item_id, "is_archived": True}
+
+
+@api_router.patch("/admin/menu/items/{item_id}/unarchive")
+async def unarchive_item(item_id: str, request: Request):
+    """Restore an archived item back into the catalog."""
+    await require_admin(request)
+    item = await db.menu_items.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    await db.menu_items.update_one({"id": item_id}, {"$set": {
+        "is_archived": False,
+        "available": item.get("status") == "in_stock",
+    }, "$unset": {"archived_at": ""}})
+    return {"id": item_id, "is_archived": False}
 
 
 # ─── Modifier Groups ─────────────────────────────────────
