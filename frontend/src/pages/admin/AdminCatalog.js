@@ -1,17 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Pencil, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import axios from "axios";
 
 // Use relative URL to avoid CORS redirect issues
 const API_BASE = "/api";
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const CATEGORIES = ["all", "starters", "mains", "drinks", "desserts"];
 
 export default function AdminCatalog() {
   const [items, setItems] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("all");
@@ -28,7 +27,14 @@ export default function AdminCatalog() {
     }
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => {
+    fetchItems();
+    axios.get(`${API_BASE}/categories/tree`)
+      .then(({ data }) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
+  }, []);
+
+  const filterChips = [{ slug: "all", name: "All items" }, ...categories.map((c) => ({ slug: c.slug, name: c.name }))];
 
   const handleToggle = async (itemId) => {
     try {
@@ -92,14 +98,14 @@ export default function AdminCatalog() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto hide-scrollbar">
-          {CATEGORIES.map((cat) => (
+          {filterChips.map((cat) => (
             <button
-              key={cat}
-              data-testid={`catalog-filter-${cat}`}
-              onClick={() => setCatFilter(cat)}
-              className={`px-4 py-2 rounded-lg font-body text-xs font-medium border whitespace-nowrap capitalize transition-all ${catFilter === cat ? "bg-brand-primary text-white border-brand-primary" : "bg-brand-surface text-brand-text-secondary border-brand-border hover:border-brand-text"}`}
+              key={cat.slug}
+              data-testid={`catalog-filter-${cat.slug}`}
+              onClick={() => setCatFilter(cat.slug)}
+              className={`px-4 py-2 rounded-lg font-body text-xs font-medium border whitespace-nowrap capitalize transition-all ${catFilter === cat.slug ? "bg-brand-primary text-white border-brand-primary" : "bg-brand-surface text-brand-text-secondary border-brand-border hover:border-brand-text"}`}
             >
-              {cat === "all" ? "All Items" : cat}
+              {cat.name}
             </button>
           ))}
         </div>
