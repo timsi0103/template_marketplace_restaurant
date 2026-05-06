@@ -52,6 +52,25 @@ async def run_startup_seed():
     elif not verify_password(admin_password, existing.get("password_hash", "")):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
 
+    # Demo customer seed — powers the one-tap demo login on /login
+    demo_email = "demo@culinaryeditorial.com"
+    demo_password = "Demo123!"
+    demo_existing = await db.users.find_one({"email": demo_email}, {"_id": 0})
+    if demo_existing is None:
+        await db.users.insert_one({
+            "user_id": f"user_{uuid.uuid4().hex[:12]}",
+            "email": demo_email,
+            "name": "Ishika M.",
+            "password_hash": hash_password(demo_password),
+            "role": "customer",
+            "picture": "",
+            "auth_provider": "email",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        logger.info(f"Demo customer seeded: {demo_email}")
+    elif not verify_password(demo_password, demo_existing.get("password_hash", "")):
+        await db.users.update_one({"email": demo_email}, {"$set": {"password_hash": hash_password(demo_password)}})
+
     # Menu items
     if await db.menu_items.count_documents({}) == 0:
         for item in SEED_ITEMS:

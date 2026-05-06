@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, Plus, ArrowRight } from "lucide-react";
+import { Heart, Plus, ArrowRight, Sparkles, LayoutDashboard } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useStorefront, applyStorefrontMeta } from "@/hooks/useStorefront";
 import { useSeo } from "@/hooks/useSeo";
+import { useAuth } from "@/contexts/AuthContext";
 import { AboutSection, FeaturedCategories, SocialProofSection } from "@/components/storefront/Sections";
 
 const heroProduct = {
@@ -42,6 +43,7 @@ export default function HomePage() {
   const { addItem } = useCart();
   const [cravingItems, setCravingItems] = useState(cravingFallback);
   const storefront = useStorefront();
+  const { user } = useAuth();
   useSeo("home");
 
   useEffect(() => {
@@ -94,6 +96,56 @@ export default function HomePage() {
 
   return (
     <div data-testid="home-page" className="min-h-screen">
+      {/* Demo strip — one-tap access to admin or customer flow */}
+      {(!user || user === false) && (
+        <aside data-testid="home-demo-strip" className="bg-gradient-to-r from-brand-primary/10 via-amber-50 to-brand-primary/10 border-b border-brand-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand-primary/10 text-brand-primary flex-shrink-0">
+                <Sparkles size={12} />
+              </span>
+              <span className="font-body text-xs sm:text-sm text-brand-text truncate">
+                <strong className="font-semibold">Trying out the template?</strong>
+                <span className="hidden sm:inline text-brand-text-secondary"> Skip the sign-up and explore either side in one tap.</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Link
+                to="/login?redirect=/menu"
+                data-testid="home-demo-customer-btn"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-surface border border-brand-border text-brand-text text-xs font-body font-semibold hover:border-brand-primary/40 transition-colors"
+              >
+                Customer demo
+              </Link>
+              <Link
+                to="/login?redirect=/admin"
+                data-testid="home-admin-login-btn"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary text-white text-xs font-body font-semibold hover:bg-brand-primary-hover transition-colors"
+              >
+                <LayoutDashboard size={12} /> Admin login
+              </Link>
+            </div>
+          </div>
+        </aside>
+      )}
+      {user?.role === "admin" && (
+        <aside data-testid="home-admin-shortcut" className="bg-brand-primary/10 border-b border-brand-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-3">
+            <span className="font-body text-xs text-brand-text">
+              <strong className="font-semibold">Welcome back, {user.name?.split(" ")[0] || "Chef"}.</strong>
+              <span className="hidden sm:inline text-brand-text-secondary"> Jump into the admin console whenever you're ready.</span>
+            </span>
+            <Link
+              to="/admin"
+              data-testid="home-go-to-admin-btn"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-brand-primary text-white text-xs font-body font-semibold hover:bg-brand-primary-hover transition-colors"
+            >
+              <LayoutDashboard size={12} /> Admin dashboard
+            </Link>
+          </div>
+        </aside>
+      )}
+
       {/* Hero Section — image on top on mobile, side-by-side on desktop */}
       <section data-testid="hero-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8 lg:py-12">
         <div className="bg-brand-surface rounded-2xl overflow-hidden border border-brand-border">

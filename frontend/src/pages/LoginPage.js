@@ -3,7 +3,30 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, Sparkles, User as UserIcon } from "lucide-react";
+
+const DEMO_ACCOUNTS = [
+  {
+    key: "admin",
+    label: "Admin dashboard",
+    blurb: "Full control: catalog, orders, kitchen, staff, reviews.",
+    email: "admin@culinaryeditorial.com",
+    password: "Admin123!",
+    redirect: "/admin",
+    icon: Sparkles,
+    accent: "from-brand-primary/10 to-brand-primary/5",
+  },
+  {
+    key: "customer",
+    label: "Customer account",
+    blurb: "Browse the menu, place an order, leave a review.",
+    email: "demo@culinaryeditorial.com",
+    password: "Demo123!",
+    redirect: "/menu",
+    icon: UserIcon,
+    accent: "from-amber-100 to-amber-50",
+  },
+];
 
 export default function LoginPage() {
   const { login, loginWithGoogle } = useAuth();
@@ -16,6 +39,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [demoKey, setDemoKey] = useState(null);
 
   useEffect(() => { if (prefilledEmail) setEmail(prefilledEmail); }, [prefilledEmail]);
 
@@ -29,6 +53,20 @@ export default function LoginPage() {
       navigate(redirectTo);
     } else {
       setError(result.error);
+    }
+  };
+
+  const signInAs = async (account) => {
+    setError("");
+    setDemoKey(account.key);
+    setEmail(account.email);
+    setPassword(account.password);
+    const result = await login(account.email, account.password);
+    setDemoKey(null);
+    if (result.success) {
+      navigate(account.redirect);
+    } else {
+      setError(result.error || "Demo login failed");
     }
   };
 
@@ -49,10 +87,44 @@ export default function LoginPage() {
         <div className="bg-brand-surface border border-brand-border rounded-2xl p-8">
           <h2
             data-testid="login-heading"
-            className="font-heading text-2xl font-bold text-brand-text mb-6"
+            className="font-heading text-2xl font-bold text-brand-text mb-3"
           >
             Sign In
           </h2>
+
+          {/* Demo accounts */}
+          <div data-testid="demo-accounts" className="mb-6 space-y-2">
+            <p className="font-body text-[11px] uppercase tracking-widest text-brand-text-secondary font-semibold">One-tap demo</p>
+            {DEMO_ACCOUNTS.map((acc) => {
+              const Icon = acc.icon;
+              const loading = demoKey === acc.key;
+              return (
+                <button
+                  key={acc.key}
+                  type="button"
+                  data-testid={`demo-login-${acc.key}`}
+                  onClick={() => signInAs(acc)}
+                  disabled={!!demoKey}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-brand-border bg-gradient-to-br ${acc.accent} text-left hover:border-brand-primary/40 active:scale-[0.99] disabled:opacity-60 transition-all`}
+                >
+                  <span className="w-9 h-9 rounded-full bg-white border border-brand-border flex items-center justify-center text-brand-primary flex-shrink-0">
+                    <Icon size={16} />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-heading text-sm font-bold text-brand-text">Try the {acc.label}</span>
+                    <span className="block text-[11px] text-brand-text-secondary truncate">{acc.blurb}</span>
+                  </span>
+                  <ArrowRight size={14} className={`text-brand-text-secondary flex-shrink-0 ${loading ? "animate-pulse" : ""}`} />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-brand-border" />
+            <span className="font-body text-xs text-brand-text-secondary">or sign in with email</span>
+            <div className="flex-1 h-px bg-brand-border" />
+          </div>
 
           {error && (
             <div data-testid="login-error" className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-body rounded-lg">
