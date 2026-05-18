@@ -1,0 +1,41 @@
+{
+  "summary": "Verified all 4 footer fixes on Culinary Editorial template — social icons, ScrollToTop, company/support toasts, and newsletter subscribe flow. Backend newsletter endpoint and storefront settings tested via pytest (4/5 passed). UI verified across /menu, /menu/starters, /menu/mains, /discover.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/storefront/settings", "issue": "Returns empty strings for social.instagram/twitter/facebook/pinterest because DB doc was previously saved with empty strings — _get_storefront() deep-merges DB over defaults so empty strings overwrite defaults. Frontend Footer mitigates this with SOCIAL_FALLBACKS so user-visible URLs are correct, but the API contract specified in the request expected populated URLs."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Subscribe invalid email", "issue": "Browser native HTML5 validation (input type='email') pre-empts the custom toast.error('Please enter a valid email'). User sees the browser's native validation tooltip instead of a sonner toast. Functionally correct (button stays 'Subscribe', input remains enabled), but the custom toast path for malformed emails is effectively dead code. Empty-string path likely still hits the custom toast since type=email allows empty submit without `required`.", "affected_selectors": ["footer-email-input", "footer-subscribe-btn"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_footer_fixes.py", "/app/test_reports/pytest/iteration_37_footer.xml"],
+  "action_items": [
+    "OPTIONAL: In /app/backend/routes/storefront.py _get_storefront(), skip empty-string values when deep-merging DB into defaults, OR run a one-time DB reset on app_settings.storefront_settings.social so admin sees populated URLs in /api/storefront/settings. Currently user-facing footer works due to frontend SOCIAL_FALLBACKS.",
+    "OPTIONAL: Replace type='email' with type='text' (or add noValidate to <form>) if you want the custom sonner toast.error to appear for malformed emails. Current native-browser tooltip works fine UX-wise."
+  ],
+  "critical_code_review_comments": [
+    "Footer.js subscribe() swallows fetch errors silently and still flips state to 'Subscribed' even when /api/newsletter/subscribe returns 4xx (e.g. 400 for invalid email). Since client-side regex already filters invalid emails this is unlikely to surface, but consider checking response.ok before flipping state.",
+    "ScrollToTop.js: useEffect depends on [pathname, search] only. If a user clicks a footer link to the same path they're already on, no scroll occurs (verified: clicking 'Full Menu' on /menu does not scroll). Could add a key or use a navigation-state listener to handle same-path clicks. Cross-route navigation works correctly."
+  ],
+  "updated_files": ["/app/backend/tests/test_footer_fixes.py"],
+  "success_rate": {"backend": "80% (4/5 pytest)", "frontend": "100% (all 4 reported bugs fixed)"},
+  "test_credentials": "None required",
+  "seed_data_creation": "Created TEST_<uuid>@example.com newsletter subscribers (idempotent upserts)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Footer fixes verified: (1) social icons have correct href/target/rel via SOCIAL_FALLBACKS, (2) ScrollToTop works for cross-route navigation, (3) company/support buttons trigger sonner toasts, (4) subscribe flow disables input+button and shows 'Subscribed ✓'. POST /api/newsletter/subscribe upserts into newsletter_subscribers. The only outstanding minor item is that DB-stored empty social URLs override defaults in /api/storefront/settings response — frontend masks this with fallbacks.",
+  "verified_evidence": {
+    "social_icons": "All 4 (instagram/twitter/facebook/pinterest) have correct href values (instagram.com/culinaryeditorial, x.com/culinaryedit, facebook.com/culinaryeditorial, pinterest.com/culinaryeditorial), target=_blank, rel='noopener noreferrer'",
+    "scroll_to_top": "Cross-route: /discover (scrollY=1183) → click footer-shop--menu → /menu scrollY=0. /menu (scrollY=3287) → click footer-shop--menu-mains → /menu/mains scrollY=0. /menu → footer-shop--menu-starters → /menu/starters scrollY=0",
+    "company_toast": "footer-company-our-story click → 'Our Story — coming soon' sonner toast appears",
+    "support_toast": "footer-support-help-centre click → 'Help Centre — coming soon' sonner toast appears",
+    "subscribe_success": "Filled valid email → button text='Subscribed ✓', input disabled=True, button disabled=True, success toast 'You're in. Check your inbox for the first edition.'",
+    "subscribe_invalid": "Filled 'bademail' → HTML5 native validation blocks submit, button stays 'Subscribe' enabled (custom sonner not shown because form onSubmit is blocked by browser)",
+    "backend_newsletter": "POST /api/newsletter/subscribe returns 200 {subscribed:true} for valid emails, 400 for invalid/empty, idempotent on repeat"
+  }
+}

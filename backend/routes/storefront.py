@@ -29,9 +29,10 @@ DEFAULT_STOREFRONT = {
         "team_image_url": "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=1200&h=800&fit=crop",
     },
     "social": {
-        "instagram": "",
-        "twitter": "",
-        "facebook": "",
+        "instagram": "https://instagram.com/culinaryeditorial",
+        "twitter": "https://x.com/culinaryedit",
+        "facebook": "https://facebook.com/culinaryeditorial",
+        "pinterest": "https://pinterest.com/culinaryeditorial",
         "tiktok": "",
         "whatsapp": "",
     },

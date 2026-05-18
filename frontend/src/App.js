@@ -9,6 +9,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { Toaster } from "@/components/ui/sonner";
 import StoreStatusBanner from "@/components/layout/StoreStatusBanner";
+import ScrollToTop from "@/components/layout/ScrollToTop";
 import ClosedOverlay from "@/components/layout/ClosedOverlay";
 import HomePage from "@/pages/HomePage";
 import MenuPage from "@/pages/MenuPage";
@@ -78,6 +79,7 @@ function AppRouter() {
 
   return (
     <>
+      <ScrollToTop />
       <StoreStatusBanner />
       <Navbar />
       <ClosedOverlay />
