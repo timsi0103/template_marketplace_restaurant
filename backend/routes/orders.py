@@ -2,6 +2,7 @@
 from fastapi import HTTPException, Request
 from datetime import datetime, timezone
 from typing import List, Optional
+from pydantic import BaseModel
 import uuid
 import os
 import secrets
@@ -133,6 +134,26 @@ async def _enrich_items(items_in: List[OrderLineIn]):
 
 def _make_order_number():
     return "ORD-" + datetime.now(timezone.utc).strftime("%y%m%d") + "-" + secrets.token_hex(2).upper()
+
+
+class NewsletterSubscribe(BaseModel):
+    email: str
+    source: Optional[str] = "footer"
+
+
+@api_router.post("/newsletter/subscribe")
+async def newsletter_subscribe(body: NewsletterSubscribe):
+    """Persists a newsletter subscription. Idempotent on email."""
+    email = (body.email or "").strip().lower()
+    if "@" not in email or "." not in email:
+        raise HTTPException(status_code=400, detail="Invalid email")
+    await db.newsletter_subscribers.update_one(
+        {"email": email},
+        {"$set": {"email": email, "source": body.source or "footer", "updated_at": datetime.now(timezone.utc).isoformat()},
+         "$setOnInsert": {"created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"subscribed": True}
 
 
 @api_router.get("/coupons/active")
