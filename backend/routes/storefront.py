@@ -89,7 +89,12 @@ async def _get_storefront() -> dict:
     merged = dict(DEFAULT_STOREFRONT)
     for k, v in (doc or {}).items():
         if isinstance(v, dict) and isinstance(merged.get(k), dict):
-            merged[k] = {**merged[k], **v}
+            # Drop empty strings so defaults survive when DB stored '' for unset fields.
+            cleaned = {ik: iv for ik, iv in v.items() if iv not in ("", None)}
+            merged[k] = {**merged[k], **cleaned}
+        elif v in ("", None) and merged.get(k):
+            # Same protection for top-level scalars.
+            continue
         else:
             merged[k] = v
     return merged

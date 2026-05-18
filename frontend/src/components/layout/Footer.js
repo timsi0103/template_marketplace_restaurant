@@ -61,17 +61,21 @@ export default function Footer() {
     }
     setSubscribing(true);
     try {
-      // Persist via the existing storefront subscribe endpoint; fall back silently.
-      try {
-        await fetch("/api/newsletter/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: trimmed, source: "footer" }),
-        });
-      } catch {/* offline is fine */}
+      const resp = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, source: "footer" }),
+      });
+      if (!resp.ok) {
+        const detail = await resp.json().catch(() => ({}));
+        toast.error(detail?.detail || "Subscription failed");
+        return;
+      }
       setSubscribed(true);
       toast.success("You're in. Check your inbox for the first edition.");
       setEmail("");
+    } catch {
+      toast.error("Network error — please try again");
     } finally {
       setSubscribing(false);
     }
@@ -91,10 +95,10 @@ export default function Footer() {
                 Receive weekly editorial picks, seasonal menus, and exclusive offers from our kitchen.
               </p>
             </div>
-            <form onSubmit={subscribe} className="flex gap-2 w-full max-w-sm">
+            <form onSubmit={subscribe} noValidate className="flex gap-2 w-full max-w-sm">
               <Input
                 data-testid="footer-email-input"
-                type="email"
+                type="text"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
