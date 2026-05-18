@@ -523,6 +523,15 @@ function SummaryStep({
   applyPromo, clearPromo, promoLoading, tip, setTip, tipMode, setTipMode,
   fulfillment, slot, address, tableNumber, isGuest,
 }) {
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+
+  useEffect(() => {
+    fetch(`/api/coupons/active?subtotal=${pricing.sub}&fulfillment_type=${fulfillment}`)
+      .then((r) => r.json())
+      .then((d) => setAvailableCoupons(d.coupons || []))
+      .catch(() => setAvailableCoupons([]));
+  }, [pricing.sub, fulfillment]);
+
   const setTipFromMode = (mode) => {
     setTipMode(mode);
     if (mode === "none") setTip(0);
@@ -663,6 +672,40 @@ function SummaryStep({
           <p data-testid="promo-error" className="mt-1.5 text-xs text-red-600 font-body inline-flex items-center gap-1">
             <AlertCircle size={11} /> {promoStatus.error}
           </p>
+        )}
+
+        {/* Available coupons */}
+        {!promoStatus.valid && availableCoupons.length > 0 && (
+          <div data-testid="available-coupons" className="mt-3">
+            <div className="text-[10px] uppercase tracking-widest text-brand-text-secondary font-semibold mb-2">Available coupons</div>
+            <div className="flex flex-wrap gap-2">
+              {availableCoupons.map((c) => {
+                const valueLabel = c.type === "percent" ? `${c.value}% off`
+                  : c.type === "fixed" ? `$${c.value.toFixed(2)} off`
+                  : "Free delivery";
+                const disabled = !c.applies_now;
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    data-testid={`coupon-${c.code}`}
+                    disabled={disabled}
+                    onClick={() => { setPromoCode(c.code); setTimeout(applyPromo, 0); }}
+                    className={`text-left px-3 py-2 rounded-xl border transition ${disabled
+                      ? "border-dashed border-brand-border bg-brand-bg/50 text-brand-text-secondary opacity-70 cursor-not-allowed"
+                      : "border-brand-border bg-brand-surface hover:border-brand-primary/50 hover:bg-brand-bg"
+                    }`}
+                  >
+                    <div className="font-mono text-xs font-bold tracking-wider text-brand-text">{c.code}</div>
+                    <div className="text-[11px] text-brand-text-secondary">{valueLabel} · {c.description}</div>
+                    {disabled && c.min_subtotal > pricing.sub && (
+                      <div className="text-[10px] text-amber-700 mt-0.5">Spend ${(c.min_subtotal - pricing.sub).toFixed(2)} more</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 

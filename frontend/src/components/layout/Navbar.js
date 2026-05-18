@@ -32,10 +32,10 @@ export default function Navbar() {
   if (isAdmin || isCheckout || isAuthPage) return null;
 
   const navLinks = [
-    { label: "Discover", path: "/" },
+    { label: "Discover", path: "/discover" },
     { label: "Menu", path: "/menu" },
     { label: "Orders", path: "/orders" },
-    { label: "Profile", path: "/loyalty" },
+    { label: "Profile", path: "/profile" },
   ];
 
   const isActive = (path) => {
@@ -171,7 +171,7 @@ export default function Navbar() {
                       </p>
                     </div>
                     <Link
-                      to="/loyalty"
+                      to="/profile"
                       data-testid="dropdown-profile-link"
                       onClick={() => setDropdownOpen(false)}
                       className="block px-4 py-2 font-body text-sm text-brand-text hover:bg-brand-bg transition-colors"

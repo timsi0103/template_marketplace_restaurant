@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import ReviewPrompt from "@/components/reviews/ReviewPrompt";
+import CancelOrderButton from "@/components/orders/CancelOrderButton";
 
 const API = "/api";
 
@@ -267,6 +268,7 @@ export default function CustomerOrdersPage() {
                   onToggleFavorite={(e) => toggleFavorite(o, e)}
                   showFavoriteToggle={isLoggedIn}
                   reorderLoading={reorderLoading}
+                  onCancelled={() => loadOrders()}
                 />
               ))}
             </div>
@@ -287,6 +289,7 @@ export default function CustomerOrdersPage() {
                   onToggleFavorite={(e) => toggleFavorite(o, e)}
                   showFavoriteToggle={isLoggedIn}
                   reorderLoading={reorderLoading}
+                  onCancelled={() => loadOrders()}
                 />
               ))}
             </div>
@@ -306,7 +309,7 @@ export default function CustomerOrdersPage() {
 }
 
 // ─── Order row ──────────────────────────────────
-function OrderRow({ order, onReorder, onToggleFavorite, showFavoriteToggle, reorderLoading }) {
+function OrderRow({ order, onReorder, onToggleFavorite, showFavoriteToggle, reorderLoading, onCancelled }) {
   const navigate = useNavigate();
   const FulfillIcon = (FULFILL_META[order.fulfillment_type] || FULFILL_META.pickup).icon;
   const fulfillLabel = (FULFILL_META[order.fulfillment_type] || FULFILL_META.pickup).label;
@@ -339,6 +342,16 @@ function OrderRow({ order, onReorder, onToggleFavorite, showFavoriteToggle, reor
             <Clock size={11} className="inline mr-1" /> {dateStr} · {itemCount} item{itemCount !== 1 ? "s" : ""}
           </div>
           <div className="font-body text-sm text-brand-text truncate">{itemsSummary}</div>
+          {["pending", "preparing"].includes(order.status) && (
+            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+              <CancelOrderButton order={order} compact onCancelled={onCancelled} />
+            </div>
+          )}
+          {(order.status === "delivered" || order.status === "completed") && (
+            <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+              <ReviewPrompt orderId={order.id} compact />
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-2">

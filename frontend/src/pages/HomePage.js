@@ -22,18 +22,21 @@ const collections = [
     title: "Signature Restaurants",
     subtitle: "Reserve exclusive tables or order the finest meals directly to your door.",
     image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&h=500&fit=crop",
+    link: "/menu/mains",
   },
   {
     id: 2,
     title: "Local Bakeries",
     subtitle: "Freshly baked mornings.",
     image: "https://images.unsplash.com/photo-1571157577110-493b325fdd3d?w=400&h=250&fit=crop",
+    link: "/menu/desserts",
   },
   {
     id: 3,
     title: "D2C Pantry",
     subtitle: "Elevate your home cooking.",
     image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=250&fit=crop",
+    link: "/menu/starters",
   },
 ];
 
@@ -205,9 +208,10 @@ export default function HomePage() {
         </h2>
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-5">
           {/* Large Card */}
-          <div
+          <Link
+            to={collections[0].link}
             data-testid="collection-card-1"
-            className="lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-48 sm:h-72 lg:h-auto"
+            className="lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-48 sm:h-72 lg:h-auto block"
           >
             <img
               src={collections[0].image}
@@ -226,14 +230,15 @@ export default function HomePage() {
                 Explore <ArrowRight size={14} />
               </span>
             </div>
-          </div>
+          </Link>
           {/* Small Cards — row on mobile, stacked in grid column on desktop */}
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-5">
             {collections.slice(1).map((col) => (
-              <div
+              <Link
                 key={col.id}
+                to={col.link}
                 data-testid={`collection-card-${col.id}`}
-                className="relative rounded-2xl overflow-hidden group cursor-pointer h-36 sm:h-48"
+                className="relative rounded-2xl overflow-hidden group cursor-pointer h-36 sm:h-48 block"
               >
                 <img
                   src={col.image}
@@ -249,7 +254,7 @@ export default function HomePage() {
                     {col.subtitle}
                   </p>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

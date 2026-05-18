@@ -1,0 +1,62 @@
+{
+  "summary": "Validated the 12 bug fixes batched in iteration 36 for the Culinary Editorial F&B template (backend + frontend). 8/8 new backend tests pass; 103/105 broader regression tests pass (2 pre-existing, unrelated failures). Frontend verified: /discover, /profile, /orders, /menu/desserts->chocolate filter, Cancel order button, Curated Collection card links, FB coming-soon toast, Subscribe success path. Closed overlay only blocks homepage. Two minor observations flagged.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/orders + Stripe", "issue": "test_checkout_orders.py::TestPaymentStatus::test_payment_status_for_created_order asserts payment_status in ['unpaid','initiated','pending'] but mocked/sandbox Stripe flips to 'paid' immediately. Pre-existing; not related to iteration 36."},
+      {"endpoint": "POST /api/orders/validate-promo (WELCOME5)", "issue": "test_checkout_orders.py::TestPromoCodeValidation::test_welcome5_promo_min_subtotal expects 'flat' but seed promo type is 'fixed'. Pre-existing terminology mismatch."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Footer Subscribe", "issue": "Invalid email path: typing 'not-an-email' + clicking Subscribe shows no visible sonner toast (HTML5 type=email validation likely blocking submit silently). Valid email path works correctly (success toast + button disabled).", "selector": "footer input[type=email] + button:has-text('Subscribe')", "priority": "LOW"},
+      {"component": "Login Page", "issue": "Apple/Facebook buttons missing data-testid attributes (had to rely on text selectors). Facebook verified working ('Facebook Sign-In is coming soon' toast). Apple assumed working by symmetry of code path but not directly clicked due to selector lookup error.", "selector": "button:has-text('Apple') / button:has-text('Facebook')", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "validated_fixes": [
+    "GET /api/menu/items?category=desserts&subcategory=chocolate -> 2 items (Valrhona 70% Lava Cake, Triple-Chocolate Mousse). UI filter chip 'Chocolate' renders both items.",
+    "/profile renders user identity (Ishika M., demo@culinaryeditorial.com, +15551112222), stats (4 orders, 2450 pts, Silver tier), recent order ORD-260518-CCA6, settings rows (Notifications, Dietary preferences, Saved addresses, Loyalty & rewards), Sign out button.",
+    "/discover renders hero, COLLECTIONS grid (Starters/Mains/Drinks/Desserts) — confirmed NOT blocked by Closed overlay.",
+    "/orders for logged-in demo customer lists 4 orders (was previously 'No orders'). POST /api/orders -> GET /api/orders returns the new order (verified by pytest test_orders_post_then_get_returns_order).",
+    "Cancel order button visible on pending orders inside /orders list with countdown timer.",
+    "Facebook Sign-In button shows 'Facebook Sign-In is coming soon. Use email or Google sign-in for now.' sonner toast.",
+    "Footer Subscribe success: valid email -> 'You're in. Check your inbox for the first edition.' + button disabled.",
+    "Curated Collection cards on home page link to /menu/mains, /menu/desserts, /menu/starters (verified via DOM hrefs).",
+    "GET /api/coupons/active returns {coupons[], count} and filters out free_delivery for non-delivery fulfillment.",
+    "PATCH /api/auth/me: 401 for guests; 200 with persisted phone for authenticated users; 400 for empty body.",
+    "GET /api/orders OR-clause: returns orders matching user_id OR contact_email.",
+    "Closed overlay only blocks homepage — verified /discover, /profile, /orders, /menu all render without the overlay."
+  ],
+  "test_report_links": [
+    "/app/backend/tests/test_iteration36_bug_fixes.py",
+    "/app/test_reports/pytest/iteration_36_results.xml",
+    "/app/test_reports/pytest/iteration_36_regression.xml"
+  ],
+  "action_items": [
+    "(Optional) Add data-testid attributes to Apple/Facebook social login buttons (login-apple-btn, login-facebook-btn) and to footer subscribe input/button for stronger testability.",
+    "(Optional) Replace native HTML5 type=email validation on footer subscribe with JS validation so invalid email surfaces a sonner toast as specified in the requirement.",
+    "(Pre-existing) Update test_checkout_orders.py to align WELCOME5 promo type wording ('flat' -> 'fixed') and to accept 'paid' as valid payment_status when mock Stripe sandbox auto-settles."
+  ],
+  "critical_code_review_comments": [
+    "/app/backend/routes/orders.py is ~360 lines including a public /coupons/active mounted under the 'orders' module — consider moving to a coupons.py router for SRP and discoverability.",
+    "create_order user_id fallback uses email when user_id missing (line ~208) — fine for now but means same email signed-in vs guest creates linkable history; intentional per the OR-clause in list_orders.",
+    "Closed overlay was scoped to homepage only — good, but consider applying a thin warning banner on /menu/* when closed so customers know orders are scheduled, not immediate.",
+    "Footer subscribe is best-effort POST to a non-existent endpoint per the agent context; consider adding /api/newsletter/subscribe stub that 200s and persists email so success state is real, not optimistic.",
+    "PATCH /api/auth/me returns user doc but does not exclude password_hash explicitly in the response path — re-verified line 94 uses projection {'_id':0, 'password_hash':0} (good)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration36_bug_fixes.py (created — 8 pytest cases for the iteration 36 fixes)"
+  ],
+  "success_rate": {
+    "backend": "100% on iteration-36 tests (8/8); 98% on broader regression (103/105 — 2 unrelated pre-existing failures)",
+    "frontend": "92% — 11/12 listed flows visually + functionally verified; invalid-email subscribe path silent (HTML5 native), Apple toast not directly clicked but code path identical to verified FB"
+  },
+  "test_credentials": "demo@culinaryeditorial.com / Demo123! (customer, works); admin@culinaryeditorial.com / Admin123! (admin, not exercised this round)",
+  "seed_data_creation": "No new seed data created. Confirmed seeded chocolate desserts present (item-011 Valrhona 70% Lava Cake, item-012 Triple-Chocolate Mousse). 4 orders auto-created by demo flow during testing.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "When testing this app, set REACT_APP_BACKEND_URL=https://restaurant-stack.preview.emergentagent.com before pytest so cookies (secure=true samesite=none) travel over HTTPS. The test_iteration36_bug_fixes.py auto-loads from frontend/.env if env var missing. Cookies are bound to internal.preview.emergentagent.com but redirect chain handles them. The Closed overlay only blocks '/' — do not be alarmed when homepage shows the overlay but other routes render normally. Backend chocolate items are seeded idempotently by item_id every restart.",
+  "rca of the issue": "N/A — feature batch validated."
+}

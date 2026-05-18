@@ -2,10 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { Compass, UtensilsCrossed, ClipboardList, User } from "lucide-react";
 
 const tabs = [
-  { label: "Discover", path: "/", icon: Compass },
+  { label: "Discover", path: "/discover", icon: Compass },
   { label: "Menu", path: "/menu", icon: UtensilsCrossed },
   { label: "Orders", path: "/orders", icon: ClipboardList },
-  { label: "Profile", path: "/loyalty", icon: User },
+  { label: "Profile", path: "/profile", icon: User },
 ];
 
 export default function BottomNav() {

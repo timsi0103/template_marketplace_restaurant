@@ -2,6 +2,8 @@
 forgot/reset password, Google OAuth, guest session."""
 from fastapi import HTTPException, Request, Response
 from datetime import datetime, timezone, timedelta
+from typing import Optional
+from pydantic import BaseModel
 import os
 import uuid
 import secrets
@@ -69,6 +71,27 @@ async def logout(response: Response):
 @api_router.get("/auth/me")
 async def get_me(request: Request):
     return await get_current_user(request)
+
+
+class ProfilePatch(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@api_router.patch("/auth/me")
+async def update_me(request: Request, body: ProfilePatch):
+    user = await get_current_user(request)
+    if not user or user.get("guest"):
+        raise HTTPException(status_code=401, detail="Sign in to update your profile")
+    patch = body.model_dump(exclude_none=True)
+    if "name" in patch:
+        patch["name"] = patch["name"].strip()[:120]
+    if "phone" in patch:
+        patch["phone"] = patch["phone"].strip()[:30]
+    if not patch:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": patch})
+    return await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "password_hash": 0})
 
 
 @api_router.post("/auth/refresh")

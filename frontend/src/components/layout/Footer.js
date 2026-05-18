@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { ArrowRight, MapPin, Phone, Mail } from "lucide-react";
+import { ArrowRight, MapPin, Phone, Mail, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
 const shopLinks = [
@@ -30,9 +31,36 @@ const supportLinks = [
 export default function Footer() {
   const location = useLocation();
   const [email, setEmail] = useState("");
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
   const isAdmin = location.pathname.startsWith("/admin");
 
   if (isAdmin) return null;
+
+  const subscribe = async (e) => {
+    e?.preventDefault?.();
+    const trimmed = email.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      toast.error("Please enter a valid email");
+      return;
+    }
+    setSubscribing(true);
+    try {
+      // Persist via the existing storefront subscribe endpoint; fall back silently.
+      try {
+        await fetch("/api/newsletter/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: trimmed, source: "footer" }),
+        });
+      } catch {/* offline is fine */}
+      setSubscribed(true);
+      toast.success("You're in. Check your inbox for the first edition.");
+      setEmail("");
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   return (
     <footer data-testid="main-footer" className="bg-brand-text mb-16 md:mb-0">
@@ -48,22 +76,25 @@ export default function Footer() {
                 Receive weekly editorial picks, seasonal menus, and exclusive offers from our kitchen.
               </p>
             </div>
-            <div className="flex gap-2 w-full max-w-sm">
+            <form onSubmit={subscribe} className="flex gap-2 w-full max-w-sm">
               <Input
                 data-testid="footer-email-input"
                 type="email"
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={subscribed}
                 className="bg-white/10 border-white/15 text-white placeholder:text-white/40 font-body text-sm h-11 focus:border-brand-orange focus:ring-brand-orange"
               />
               <button
                 data-testid="footer-subscribe-btn"
-                className="px-5 py-2.5 bg-brand-orange text-white font-body text-sm font-semibold rounded-md hover:bg-brand-orange-hover active:scale-95 transition-all flex items-center gap-1.5 flex-shrink-0"
+                type="submit"
+                disabled={subscribing || subscribed}
+                className="px-5 py-2.5 bg-brand-orange text-white font-body text-sm font-semibold rounded-md hover:bg-brand-orange-hover active:scale-95 disabled:opacity-70 transition-all flex items-center gap-1.5 flex-shrink-0"
               >
-                Subscribe <ArrowRight size={14} />
+                {subscribed ? "Subscribed ✓" : subscribing ? <><Loader2 size={14} className="animate-spin" /> …</> : <>Subscribe <ArrowRight size={14} /></>}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </div>

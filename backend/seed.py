@@ -21,6 +21,8 @@ SEED_ITEMS = [
     {"id": "item-008", "name": "Elderflower Spritz", "description": "House-made elderflower cordial, Prosecco, a splash of sparkling water, and fresh mint. Light, floral, and utterly refreshing.", "price": 16.00, "category": "drinks", "image": "https://images.unsplash.com/photo-1536935338788-846bb9981813?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1536935338788-846bb9981813?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
     {"id": "item-009", "name": "Matcha Mille Crepe", "description": "Twenty delicate crepes layered with ceremonial-grade matcha cream, a light dusting of powdered sugar, and edible gold leaf. An architectural dessert.", "price": 14.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=600&h=400&fit=crop"], "tags": ["LIMITED DAILY"], "status": "in_stock", "available": True},
     {"id": "item-010", "name": "Reserve Cold Brew", "description": "Single-origin Ethiopian Yirgacheffe, cold-brewed for 18 hours, served over hand-cut ice with a twist of orange zest. Bold, smooth, and deeply aromatic.", "price": 8.00, "category": "drinks", "image": "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True, "variants": [{"id": "var-brew-sm", "name": "Small (250ml)", "price": 8.00, "stock": -1, "status": "in_stock", "image": ""}, {"id": "var-brew-md", "name": "Medium (500ml)", "price": 12.00, "stock": -1, "status": "in_stock", "image": ""}, {"id": "var-brew-lg", "name": "Large (750ml)", "price": 16.00, "stock": 3, "status": "in_stock", "image": ""}]},
+    {"id": "item-011", "name": "Valrhona 70% Lava Cake", "description": "Molten heart of Valrhona Guanaja 70% chocolate, brown-butter financier crust, vanilla-bean crème anglaise, and a single Amarena cherry.", "price": 16.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=600&h=400&fit=crop"], "tags": ["CHEF'S SIGNATURE"], "status": "in_stock", "available": True},
+    {"id": "item-012", "name": "Triple-Chocolate Mousse", "description": "A layered mousse of milk, dark, and white Belgian chocolate, finished with cocoa nib brittle and a quenelle of Tahitian-vanilla cream.", "price": 13.00, "category": "desserts", "image": "https://images.unsplash.com/photo-1551024506-0bccd828d307?w=600&h=400&fit=crop", "images": ["https://images.unsplash.com/photo-1551024506-0bccd828d307?w=600&h=400&fit=crop"], "tags": [], "status": "in_stock", "available": True},
 ]
 
 
@@ -71,15 +73,15 @@ async def run_startup_seed():
     elif not verify_password(demo_password, demo_existing.get("password_hash", "")):
         await db.users.update_one({"email": demo_email}, {"$set": {"password_hash": hash_password(demo_password)}})
 
-    # Menu items
-    if await db.menu_items.count_documents({}) == 0:
-        for item in SEED_ITEMS:
+    # Menu items — idempotent: only inserts items whose id isn't already present.
+    for item in SEED_ITEMS:
+        if not await db.menu_items.find_one({"id": item["id"]}, {"_id": 0, "id": 1}):
             item["created_at"] = datetime.now(timezone.utc).isoformat()
             try:
                 await db.menu_items.insert_one(item)
+                logger.info(f"Seeded missing menu item: {item['id']} – {item['name']}")
             except Exception:
                 pass
-        logger.info(f"Seeded {len(SEED_ITEMS)} menu items")
 
     # Categories
     if await db.categories.count_documents({}) == 0:
@@ -162,6 +164,8 @@ async def run_startup_seed():
         "item-008": {"subcategory": "sparkling",    "dietary_tags": ["vegan", "gluten_free", "dairy_free", "nut_free"]},
         "item-009": {"subcategory": "pastries",     "dietary_tags": ["vegetarian"]},
         "item-010": {"subcategory": "non-alcoholic","dietary_tags": ["vegan", "gluten_free", "dairy_free", "nut_free"]},
+        "item-011": {"subcategory": "chocolate",    "dietary_tags": ["vegetarian"]},
+        "item-012": {"subcategory": "chocolate",    "dietary_tags": ["vegetarian"]},
     }
     for iid, fix in SEED_TAXONOMY.items():
         await db.menu_items.update_one(

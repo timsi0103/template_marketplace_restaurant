@@ -64,6 +64,8 @@ import AdminRoles from "@/pages/admin/AdminRoles";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AcceptInvitePage from "@/pages/AcceptInvitePage";
 import ReviewSubmissionPage from "@/pages/ReviewSubmissionPage";
+import DiscoverPage from "@/pages/DiscoverPage";
+import ProfilePage from "@/pages/ProfilePage";
 import { useStorefront } from "@/hooks/useStorefront";
 
 function AppRouter() {
@@ -82,6 +84,8 @@ function AppRouter() {
       <div className="pb-16 lg:pb-0">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/menu" element={<MenuPage />} />
           <Route path="/menu/:slug" element={<CategoryLandingPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />

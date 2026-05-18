@@ -135,6 +135,37 @@ def _make_order_number():
     return "ORD-" + datetime.now(timezone.utc).strftime("%y%m%d") + "-" + secrets.token_hex(2).upper()
 
 
+@api_router.get("/coupons/active")
+async def list_active_coupons(subtotal: float = 0, fulfillment_type: Optional[str] = None):
+    """Public list of currently-redeemable coupons for display in checkout."""
+    now = datetime.now(timezone.utc).date()
+    docs = await db.promo_codes.find({"active": True}, {"_id": 0}).to_list(50)
+    out = []
+    for d in docs:
+        if d.get("expires_at"):
+            try:
+                if datetime.fromisoformat(d["expires_at"]).date() < now:
+                    continue
+            except Exception:
+                pass
+        if d.get("usage_limit") is not None:
+            if int(d.get("usage_count", 0)) >= int(d["usage_limit"]):
+                continue
+        # Filter codes that wouldn't apply right now
+        if d.get("type") == "free_delivery" and fulfillment_type and fulfillment_type != "delivery":
+            continue
+        out.append({
+            "code": d["code"],
+            "type": d["type"],
+            "value": float(d.get("value") or 0),
+            "min_subtotal": float(d.get("min_subtotal") or 0),
+            "description": d.get("description") or "",
+            "first_order_only": bool(d.get("first_order_only")),
+            "applies_now": subtotal >= float(d.get("min_subtotal") or 0),
+        })
+    return {"coupons": out, "count": len(out)}
+
+
 @api_router.post("/orders/validate-promo")
 async def validate_promo(body: PromoValidate):
     doc, err = await _fetch_active_coupon(body.code)
@@ -174,7 +205,7 @@ async def create_order(body: OrderCreate, request: Request):
     try:
         user = await get_current_user(request)
         if user and not user.get("guest"):
-            user_id = user.get("id") or user.get("_id") or user.get("email")
+            user_id = user.get("user_id") or user.get("id") or user.get("email")
     except Exception:
         user_id = None
 
@@ -269,19 +300,30 @@ async def create_order(body: OrderCreate, request: Request):
 
 @api_router.get("/orders")
 async def list_orders(request: Request, email: Optional[str] = None):
-    query = {}
+    """Return orders for the caller.
+
+    For logged-in customers we match on `user_id` OR `contact_email` so that
+    orders placed before account creation (or by guest) still surface.
+    """
+    or_clauses = []
     try:
         user = await get_current_user(request)
         if user and not user.get("guest"):
-            uid = user.get("user_id") or user.get("id") or user.get("email")
-            query = {"user_id": uid}
-        elif email:
-            query = {"contact_email": email}
+            uid = user.get("user_id") or user.get("id")
+            if uid:
+                or_clauses.append({"user_id": uid})
+            if user.get("email"):
+                or_clauses.append({"contact_email": user["email"]})
     except Exception:
-        if email:
-            query = {"contact_email": email}
-        else:
-            return {"orders": [], "count": 0}
+        pass
+
+    if email:
+        or_clauses.append({"contact_email": email})
+
+    if not or_clauses:
+        return {"orders": [], "count": 0}
+
+    query = or_clauses[0] if len(or_clauses) == 1 else {"$or": or_clauses}
     orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"orders": orders, "count": len(orders)}
 
