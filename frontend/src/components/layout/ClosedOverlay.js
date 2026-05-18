@@ -9,9 +9,10 @@ export default function ClosedOverlay() {
   if (loading || !status) return null;
   if (status.is_open) return null;
 
-  // Don't show overlay on admin, auth, or checkout pages
-  const hiddenPaths = ["/admin", "/login", "/signup", "/forgot-password", "/reset-password", "/checkout", "/order", "/menu", "/product", "/kitchen", "/kds"];
-  if (hiddenPaths.some(p => location.pathname.startsWith(p))) return null;
+  // Only block the homepage. On every other route the non-blocking
+  // `StoreStatusBanner` at the top of the page communicates the closed state
+  // without preventing the user from navigating to Discover, Orders, Account, etc.
+  if (location.pathname !== "/") return null;
 
   return (
     <div data-testid="closed-overlay" className="fixed inset-0 z-[90] bg-brand-bg/95 backdrop-blur-sm flex items-center justify-center p-6">
