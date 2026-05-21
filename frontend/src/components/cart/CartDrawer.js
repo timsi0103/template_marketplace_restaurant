@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, AlertCircle, Tag, CheckCircle2, X, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +17,16 @@ export default function CartDrawer() {
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState("");
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+
+  // Pull live coupons whenever the drawer opens or the subtotal changes
+  useEffect(() => {
+    if (!drawerOpen || items.length === 0) return;
+    fetch(`/api/coupons/active?subtotal=${subtotal || 0}`)
+      .then((r) => r.json())
+      .then((d) => setAvailableCoupons(d.coupons || []))
+      .catch(() => setAvailableCoupons([]));
+  }, [drawerOpen, subtotal, items.length]);
 
   // Compute preview discount for sidebar (delivery discount not reflected here since fulfillment isn't selected yet)
   const discount = (() => {
@@ -28,11 +38,12 @@ export default function CartDrawer() {
   })();
   const afterDiscount = Math.max(0, subtotal - discount);
 
-  const onApplyPromo = async () => {
-    if (!promoInput.trim() || promoLoading) return;
+  const onApplyPromo = async (codeArg) => {
+    const code = (typeof codeArg === "string" ? codeArg : promoInput).trim();
+    if (!code || promoLoading) return;
     setPromoLoading(true);
     setPromoError("");
-    const res = await applyPromoCode(promoInput.trim());
+    const res = await applyPromoCode(code);
     setPromoLoading(false);
     if (res.ok) {
       toast.success("Promo applied", { description: res.rule?.description });
@@ -289,6 +300,38 @@ export default function CartDrawer() {
                     </button>
                   </div>
                   {promoError && <p data-testid="cart-promo-error" className="text-[11px] text-red-600 font-body">{promoError}</p>}
+
+                  {availableCoupons.length > 0 && (
+                    <div data-testid="cart-available-coupons" className="pt-2">
+                      <div className="text-[10px] uppercase tracking-widest text-brand-text-secondary font-semibold mb-1.5">Available coupons</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {availableCoupons.map((c) => {
+                          const valueLabel = c.type === "percent" ? `${c.value}% off`
+                            : c.type === "fixed" ? `$${c.value.toFixed(2)} off`
+                            : "Free delivery";
+                          const disabled = !c.applies_now || promoLoading;
+                          return (
+                            <button
+                              key={c.code}
+                              type="button"
+                              data-testid={`cart-coupon-${c.code}`}
+                              disabled={disabled}
+                              onClick={() => onApplyPromo(c.code)}
+                              title={c.description + (c.applies_now ? "" : ` (Spend $${(c.min_subtotal - subtotal).toFixed(2)} more to unlock)`)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-mono tracking-wider font-bold transition ${disabled
+                                ? "border-dashed border-brand-border text-brand-text-secondary opacity-60 cursor-not-allowed"
+                                : "border-brand-primary/40 bg-brand-primary/5 text-brand-text hover:bg-brand-primary hover:text-white hover:border-brand-primary"
+                              }`}
+                            >
+                              <Tag size={10} />
+                              {c.code}
+                              <span className="font-body font-semibold normal-case tracking-normal text-[10px] opacity-80">· {valueLabel}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
