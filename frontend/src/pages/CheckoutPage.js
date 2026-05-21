@@ -162,15 +162,19 @@ export default function CheckoutPage() {
     setStepIdx(prev);
   };
 
-  const applyPromo = async () => {
-    if (!promoCode.trim() || promoLoading) return;
+  const applyPromo = async (codeArg) => {
+    const code = (typeof codeArg === "string" ? codeArg : promoCode).trim();
+    if (!code || promoLoading) return;
+    if (typeof codeArg === "string" && codeArg !== promoCode) {
+      setPromoCode(codeArg);
+    }
     setPromoLoading(true);
     try {
       const res = await fetch("/api/orders/validate-promo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          code: promoCode.trim(),
+          code,
           subtotal,
           contact_email: contact.email || null,
           fulfillment_type: fulfillment,
@@ -182,7 +186,7 @@ export default function CheckoutPage() {
         try {
           localStorage.setItem("culinary_promo", JSON.stringify({ code: data.code, rule: data.rule }));
           // keep cart context in sync if it tracks promo
-          applyPromoViaCart(promoCode.trim());
+          applyPromoViaCart(code);
         } catch { /* noop */ }
         toast.success("Promo applied", { description: data.description });
       } else {
@@ -300,6 +304,13 @@ export default function CheckoutPage() {
         </h1>
 
         <CheckoutStepper steps={effectiveSteps} currentKey={currentStepKey} />
+
+        <CheckoutCouponBanner
+          subtotal={pricing.sub}
+          fulfillment={fulfillment}
+          promoStatus={promoStatus}
+          onApply={(code) => applyPromo(code)}
+        />
 
         <div className="mt-6 flex flex-col lg:grid lg:grid-cols-5 lg:gap-8">
           <div className="lg:col-span-3 bg-brand-surface border border-brand-border rounded-2xl p-5 sm:p-7">
@@ -688,7 +699,7 @@ function SummaryStep({
                     type="button"
                     data-testid={`coupon-${c.code}`}
                     disabled={disabled}
-                    onClick={() => { setPromoCode(c.code); setTimeout(applyPromo, 0); }}
+                    onClick={() => applyPromo(c.code)}
                     className={`text-left px-3 py-2 rounded-xl border transition ${disabled
                       ? "border-dashed border-brand-border bg-brand-bg/50 text-brand-text-secondary opacity-70 cursor-not-allowed"
                       : "border-brand-border bg-brand-surface hover:border-brand-primary/50 hover:bg-brand-bg"
@@ -846,7 +857,7 @@ function OrderSummaryCard({ items, pricing, fulfillment, slot, eta, promoCode, s
                     type="button"
                     data-testid={`summary-coupon-${c.code}`}
                     disabled={disabled}
-                    onClick={() => { setPromoCode?.(c.code); setTimeout(() => applyPromo?.(), 0); }}
+                    onClick={() => applyPromo?.(c.code)}
                     className={`text-left px-3 py-2 rounded-xl border transition ${disabled
                       ? "border-dashed border-brand-border bg-brand-bg/40 text-brand-text-secondary opacity-70 cursor-not-allowed"
                       : "border-brand-border bg-brand-bg hover:border-brand-primary/50 hover:bg-brand-surface"
@@ -876,6 +887,73 @@ function Row({ label, value, testid, className = "" }) {
     <div data-testid={testid} className={`flex items-center justify-between text-brand-text-secondary ${className}`}>
       <span>{label}</span>
       <span>{value}</span>
+    </div>
+  );
+}
+
+// Prominent banner at the top of checkout: shows available coupons regardless of step / viewport.
+function CheckoutCouponBanner({ subtotal, fulfillment, promoStatus, onApply }) {
+  const [coupons, setCoupons] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/coupons/active?subtotal=${subtotal || 0}&fulfillment_type=${fulfillment || "delivery"}`)
+      .then((r) => r.json())
+      .then((d) => setCoupons(d.coupons || []))
+      .catch(() => setCoupons([]));
+  }, [subtotal, fulfillment]);
+
+  if (!coupons.length || promoStatus?.valid) return null;
+
+  return (
+    <div data-testid="checkout-coupon-banner" className="mt-4 rounded-2xl border border-brand-primary/30 bg-gradient-to-r from-brand-primary/10 via-amber-50 to-brand-primary/10">
+      <button
+        type="button"
+        data-testid="coupon-banner-toggle"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 text-left"
+      >
+        <span className="flex items-center gap-2.5">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-brand-primary text-white"><Tag size={13} /></span>
+          <span>
+            <span className="font-heading text-sm sm:text-base font-bold text-brand-text">{coupons.length} coupon{coupons.length === 1 ? "" : "s"} available</span>
+            <span className="hidden sm:inline font-body text-xs text-brand-text-secondary ml-2">— tap a code to apply instantly</span>
+          </span>
+        </span>
+        <span className="font-body text-xs font-semibold text-brand-primary">{expanded ? "Hide" : "View"}</span>
+      </button>
+      {expanded && (
+        <div data-testid="coupon-banner-list" className="px-4 sm:px-5 pb-4 grid sm:grid-cols-3 gap-2">
+          {coupons.map((c) => {
+            const valueLabel = c.type === "percent" ? `${c.value}% off`
+              : c.type === "fixed" ? `$${c.value.toFixed(2)} off`
+              : "Free delivery";
+            const disabled = !c.applies_now;
+            return (
+              <button
+                key={c.code}
+                type="button"
+                data-testid={`banner-coupon-${c.code}`}
+                disabled={disabled}
+                onClick={() => onApply?.(c.code)}
+                className={`text-left px-3 py-2.5 rounded-xl border transition ${disabled
+                  ? "border-dashed border-brand-border bg-white/40 text-brand-text-secondary opacity-70 cursor-not-allowed"
+                  : "border-brand-border bg-white hover:border-brand-primary hover:shadow-sm"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-bold tracking-wider text-brand-text">{c.code}</span>
+                  <span className="text-[11px] font-body font-semibold text-brand-primary">{valueLabel}</span>
+                </div>
+                <div className="text-[11px] text-brand-text-secondary mt-0.5 leading-snug">{c.description}</div>
+                {disabled && c.min_subtotal > (subtotal || 0) && (
+                  <div className="text-[10px] text-amber-700 mt-0.5">Spend ${(c.min_subtotal - (subtotal || 0)).toFixed(2)} more to unlock</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
