@@ -404,7 +404,17 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          <OrderSummaryCard items={items} pricing={pricing} fulfillment={fulfillment} slot={slot} eta={eta} />
+          <OrderSummaryCard
+            items={items}
+            pricing={pricing}
+            fulfillment={fulfillment}
+            slot={slot}
+            eta={eta}
+            promoCode={promoCode}
+            setPromoCode={setPromoCode}
+            promoStatus={promoStatus}
+            applyPromo={applyPromo}
+          />
         </div>
       </div>
     </div>
@@ -768,9 +778,17 @@ function PaymentStep({
   );
 }
 
-function OrderSummaryCard({ items, pricing, fulfillment, slot, eta }) {
+function OrderSummaryCard({ items, pricing, fulfillment, slot, eta, promoCode, setPromoCode, promoStatus, applyPromo }) {
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  useEffect(() => {
+    fetch(`/api/coupons/active?subtotal=${pricing.sub}&fulfillment_type=${fulfillment}`)
+      .then((r) => r.json())
+      .then((d) => setAvailableCoupons(d.coupons || []))
+      .catch(() => setAvailableCoupons([]));
+  }, [pricing.sub, fulfillment]);
+
   return (
-    <div className="lg:col-span-2 mt-6 lg:mt-0">
+    <div className="lg:col-span-2 mt-6 lg:mt-0 space-y-4">
       <div
         data-testid="order-summary-card"
         className="bg-brand-surface border border-brand-border rounded-2xl p-5 lg:sticky lg:top-20"
@@ -821,6 +839,45 @@ function OrderSummaryCard({ items, pricing, fulfillment, slot, eta }) {
             slot === "ASAP" ? `Arriving ${fulfillment === "delivery" ? "in ~30 min" : "in ~20 min"}` : `Scheduled · ${slot}`
           )}
         </div>
+
+        {/* Available coupons — visible on every checkout step */}
+        {availableCoupons.length > 0 && !promoStatus?.valid && (
+          <div data-testid="summary-available-coupons" className="mt-4 pt-4 border-t border-brand-border">
+            <div className="text-[10px] uppercase tracking-widest text-brand-text-secondary font-semibold mb-2">
+              Available coupons
+            </div>
+            <div className="flex flex-col gap-2">
+              {availableCoupons.map((c) => {
+                const valueLabel = c.type === "percent" ? `${c.value}% off`
+                  : c.type === "fixed" ? `$${c.value.toFixed(2)} off`
+                  : "Free delivery";
+                const disabled = !c.applies_now;
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    data-testid={`summary-coupon-${c.code}`}
+                    disabled={disabled}
+                    onClick={() => { setPromoCode?.(c.code); setTimeout(() => applyPromo?.(), 0); }}
+                    className={`text-left px-3 py-2 rounded-xl border transition ${disabled
+                      ? "border-dashed border-brand-border bg-brand-bg/40 text-brand-text-secondary opacity-70 cursor-not-allowed"
+                      : "border-brand-border bg-brand-bg hover:border-brand-primary/50 hover:bg-brand-surface"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] font-bold tracking-wider text-brand-text">{c.code}</span>
+                      <span className="text-[10px] font-body font-semibold text-brand-primary">{valueLabel}</span>
+                    </div>
+                    <div className="text-[10px] text-brand-text-secondary mt-0.5 leading-snug">{c.description}</div>
+                    {disabled && c.min_subtotal > pricing.sub && (
+                      <div className="text-[10px] text-amber-700 mt-0.5">Spend ${(c.min_subtotal - pricing.sub).toFixed(2)} more to unlock</div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

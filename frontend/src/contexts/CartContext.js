@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { toast } from "sonner";
 
 const CartContext = createContext(null);
@@ -156,6 +156,17 @@ export function CartProvider({ children }) {
     saveCart([]);
     setPromo(null);
     localStorage.removeItem("culinary_promo");
+  }, []);
+
+  // Flush cart + promo whenever the user signs out (AuthContext dispatches "auth:logout")
+  useEffect(() => {
+    const handler = () => {
+      setItems([]);
+      setPromo(null);
+      setDrawerOpen(false);
+    };
+    window.addEventListener("auth:logout", handler);
+    return () => window.removeEventListener("auth:logout", handler);
   }, []);
 
   const itemCount = items.reduce((s, i) => s + i.qty, 0);

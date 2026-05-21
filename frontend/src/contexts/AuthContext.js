@@ -68,6 +68,16 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     }
+    // Clear customer-private client-side state (cart, promo, saved choices)
+    try {
+      localStorage.removeItem("culinary_cart");
+      localStorage.removeItem("culinary_promo");
+      localStorage.removeItem("saved_addresses");
+      localStorage.removeItem("guest_choice_dismissed_v1");
+      localStorage.removeItem("last_order_context");
+    } catch { /* ignore */ }
+    // Notify other contexts (e.g. CartContext) to flush in-memory state
+    try { window.dispatchEvent(new CustomEvent("auth:logout")); } catch { /* ignore */ }
     setUser(false);
   };
 
