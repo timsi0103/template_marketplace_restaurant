@@ -14,7 +14,6 @@ import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
 import TimeSlotPicker from "@/components/checkout/TimeSlotPicker";
 import CheckoutStepper from "@/components/checkout/CheckoutStepper";
 import PaymentMethodSelector, { cardFormIsValid } from "@/components/checkout/PaymentMethodSelector";
-import GuestCheckoutChoice from "@/components/checkout/GuestCheckoutChoice";
 import ReturningGuestHint from "@/components/checkout/ReturningGuestHint";
 
 const STEPS = [
@@ -61,9 +60,13 @@ export default function CheckoutPage() {
   const [payMethod, setPayMethod] = useState("card");
   const [savedCardId, setSavedCardId] = useState(null);
   const [cardForm, setCardForm] = useState({ number: "", expiry: "", cvv: "", name: "" });
-  const [guestChoiceDismissed, setGuestChoiceDismissed] = useState(() => {
-    try { return localStorage.getItem("guest_choice_dismissed_v1") === "1"; } catch { return false; }
-  });
+
+  // Auth required: send unauthenticated visitors to the login page first
+  useEffect(() => {
+    if (user === false) {
+      navigate("/login?redirect=/checkout", { replace: true });
+    }
+  }, [user, navigate]);
 
   useEffect(() => {
     if (user?.email && !contact.email) {
@@ -295,21 +298,6 @@ export default function CheckoutPage() {
         <h1 data-testid="checkout-title" className="font-heading text-3xl sm:text-4xl font-bold text-brand-text mb-4">
           Checkout
         </h1>
-
-        {(!user?.email || user?.guest) && (
-          <GuestCheckoutChoice
-            email={contact.email}
-            dismissed={guestChoiceDismissed}
-            onContinueAsGuest={() => {
-              setGuestChoiceDismissed(true);
-              try { localStorage.setItem("guest_choice_dismissed_v1", "1"); } catch { /* ignore */ }
-            }}
-            onDismiss={() => {
-              setGuestChoiceDismissed(true);
-              try { localStorage.setItem("guest_choice_dismissed_v1", "1"); } catch { /* ignore */ }
-            }}
-          />
-        )}
 
         <CheckoutStepper steps={effectiveSteps} currentKey={currentStepKey} />
 

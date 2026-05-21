@@ -16,35 +16,19 @@ const heroProduct = {
   image: "https://images.unsplash.com/photo-1571157577110-493b325fdd3d?w=600&h=400&fit=crop",
 };
 
-const collections = [
-  {
-    id: 1,
-    title: "Signature Restaurants",
-    subtitle: "Reserve exclusive tables or order the finest meals directly to your door.",
-    image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&h=500&fit=crop",
-    link: "/menu/mains",
-  },
-  {
-    id: 2,
-    title: "Local Bakeries",
-    subtitle: "Freshly baked mornings.",
-    image: "https://images.unsplash.com/photo-1571157577110-493b325fdd3d?w=400&h=250&fit=crop",
-    link: "/menu/desserts",
-  },
-  {
-    id: 3,
-    title: "D2C Pantry",
-    subtitle: "Elevate your home cooking.",
-    image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=250&fit=crop",
-    link: "/menu/starters",
-  },
-];
-
 const cravingFallback = [];
+
+// Lightweight fallback while categories are loading. Shape matches API output.
+const FALLBACK_COLLECTIONS = [
+  { id: "cat-mains", slug: "mains", name: "Mains", description: "The heart of our collection. Signature entrees crafted with the finest seasonal ingredients.", image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=700&h=500&fit=crop" },
+  { id: "cat-desserts", slug: "desserts", name: "Desserts", description: "The sweet finale. Indulgent creations from our patisserie.", image: "https://images.unsplash.com/photo-1571157577110-493b325fdd3d?w=400&h=250&fit=crop" },
+  { id: "cat-starters", slug: "starters", name: "Starters", description: "Begin your journey with appetizers and small plates.", image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=250&fit=crop" },
+];
 
 export default function HomePage() {
   const { addItem } = useCart();
   const [cravingItems, setCravingItems] = useState(cravingFallback);
+  const [liveCollections, setLiveCollections] = useState(FALLBACK_COLLECTIONS);
   const storefront = useStorefront();
   const { user } = useAuth();
   useSeo("home");
@@ -52,6 +36,28 @@ export default function HomePage() {
   useEffect(() => {
     if (storefront) applyStorefrontMeta(storefront);
   }, [storefront]);
+
+  // Pull real categories so the Curated Collections cards always navigate somewhere valid
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/categories/tree")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        const cats = (d?.categories || []).filter((c) => c.slug);
+        if (cats.length === 0) return;
+        const ordered = [...cats].sort((a, b) => (b.subcategories?.length || 0) - (a.subcategories?.length || 0));
+        setLiveCollections(ordered.slice(0, 3).map((c) => ({
+          id: c.id,
+          slug: c.slug,
+          name: c.name,
+          description: c.description || `Explore our ${c.name.toLowerCase()} collection.`,
+          image: c.image || FALLBACK_COLLECTIONS.find((f) => f.slug === c.slug)?.image || FALLBACK_COLLECTIONS[0].image,
+        })));
+      })
+      .catch(() => { /* keep fallback */ });
+    return () => { cancelled = true; };
+  }, []);
 
   // Dynamic brand-driven hero fields (fallback to hardcoded defaults if not loaded yet)
   const hero = storefront?.hero || {};
@@ -214,22 +220,23 @@ export default function HomePage() {
         <div className="flex flex-col gap-4 lg:grid lg:grid-cols-3 lg:gap-5">
           {/* Large Card */}
           <Link
-            to={collections[0].link}
+            to={`/menu/${liveCollections[0].slug}`}
             data-testid="collection-card-1"
             className="lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden group cursor-pointer h-48 sm:h-72 lg:h-auto block"
           >
             <img
-              src={collections[0].image}
-              alt={collections[0].title}
+              src={liveCollections[0].image}
+              alt={liveCollections[0].name}
+              onError={(e) => { e.currentTarget.src = FALLBACK_COLLECTIONS[0].image; }}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-4 sm:bottom-6 left-4 sm:left-6 right-4 sm:right-6">
               <h3 className="font-heading text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-1">
-                {collections[0].title}
+                {liveCollections[0].name}
               </h3>
               <p className="font-body text-xs sm:text-sm text-white/80 mb-2 sm:mb-3 line-clamp-2">
-                {collections[0].subtitle}
+                {liveCollections[0].description}
               </p>
               <span className="inline-flex items-center gap-1 font-body text-sm text-brand-orange font-medium">
                 Explore <ArrowRight size={14} />
@@ -238,25 +245,26 @@ export default function HomePage() {
           </Link>
           {/* Small Cards — row on mobile, stacked in grid column on desktop */}
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 lg:gap-5">
-            {collections.slice(1).map((col) => (
+            {liveCollections.slice(1, 3).map((col, idx) => (
               <Link
-                key={col.id}
-                to={col.link}
-                data-testid={`collection-card-${col.id}`}
+                key={col.id || col.slug}
+                to={`/menu/${col.slug}`}
+                data-testid={`collection-card-${idx + 2}`}
                 className="relative rounded-2xl overflow-hidden group cursor-pointer h-36 sm:h-48 block"
               >
                 <img
                   src={col.image}
-                  alt={col.title}
+                  alt={col.name}
+                  onError={(e) => { e.currentTarget.src = FALLBACK_COLLECTIONS[(idx + 1) % FALLBACK_COLLECTIONS.length].image; }}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-3 sm:bottom-4 left-3 sm:left-4 right-3 sm:right-4">
                   <h3 className="font-heading text-sm sm:text-lg font-bold text-white">
-                    {col.title}
+                    {col.name}
                   </h3>
                   <p className="font-body text-[10px] sm:text-xs text-white/80 line-clamp-1">
-                    {col.subtitle}
+                    {col.description}
                   </p>
                 </div>
               </Link>

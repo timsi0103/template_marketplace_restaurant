@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react";
 
 export default function SignUpPage() {
-  const { register, loginWithGoogle, createGuestSession } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -25,15 +25,6 @@ export default function SignUpPage() {
       navigate("/");
     } else {
       setError(result.error);
-    }
-  };
-
-  const handleGuest = async () => {
-    setSubmitting(true);
-    const result = await createGuestSession();
-    setSubmitting(false);
-    if (result.success) {
-      navigate("/checkout");
     }
   };
 
@@ -169,18 +160,6 @@ export default function SignUpPage() {
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
               Continue with Facebook
-            </button>
-          </div>
-
-          {/* Guest Checkout */}
-          <div className="mt-6 pt-6 border-t border-brand-border">
-            <button
-              data-testid="guest-checkout-btn"
-              onClick={handleGuest}
-              disabled={submitting}
-              className="w-full py-2.5 bg-brand-bg border border-brand-border rounded-full font-body text-sm font-medium text-brand-text-secondary hover:text-brand-text hover:border-brand-text transition-all"
-            >
-              Continue as Guest
             </button>
           </div>
 
