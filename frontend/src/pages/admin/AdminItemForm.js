@@ -98,13 +98,37 @@ export default function AdminItemForm() {
   // ── Image management ──────────────────────────────────
   const addImageUrl = () => {
     const url = imageUrl.trim();
-    if (!url) return;
+    if (!url) {
+      toast.error("Paste an image URL first");
+      return;
+    }
+    if (!/^https?:\/\/.+/i.test(url)) {
+      toast.error("URL must start with http:// or https://");
+      return;
+    }
     if (form.images.includes(url)) {
       toast.error("That image is already added");
       return;
     }
-    setForm((p) => ({ ...p, images: [...p.images, url] }));
-    setImageUrl("");
+    // Pre-load the image so we can warn the user if it 404s / is CORS-blocked
+    const probe = new Image();
+    let settled = false;
+    const finalize = (ok) => {
+      if (settled) return;
+      settled = true;
+      if (ok) {
+        setForm((p) => ({ ...p, images: [...p.images, url] }));
+        setImageUrl("");
+        toast.success("Image added");
+      } else {
+        toast.error("That URL didn't return an image. Check the link and try again.");
+      }
+    };
+    probe.onload = () => finalize(true);
+    probe.onerror = () => finalize(false);
+    probe.src = url;
+    // Don't hang forever — give the browser 6s to load it
+    setTimeout(() => finalize(false), 6000);
   };
 
   const handleFileUpload = async (e) => {
