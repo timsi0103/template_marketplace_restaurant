@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, AlertCircle, Tag, CheckCircle2, X, Loader2, Pencil } from "lucide-react";
+import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, AlertCircle, Tag, CheckCircle2, X, Loader2, Pencil, Pause } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
+import { useStoreStatus } from "@/contexts/StoreStatusContext";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter,
 } from "@/components/ui/sheet";
@@ -13,6 +14,9 @@ export default function CartDrawer() {
     drawerOpen, setDrawerOpen, belowMinimum, amountToMinimum, MIN_ORDER_AMOUNT,
     promo, applyPromoCode, clearPromo,
   } = useCart();
+  const { status: storeStatus } = useStoreStatus();
+  const isPaused = !!storeStatus?.pause_ordering;
+  const pauseReason = storeStatus?.pause_reason || "";
   const navigate = useNavigate();
   const [promoInput, setPromoInput] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
@@ -55,7 +59,7 @@ export default function CartDrawer() {
   };
 
   const handleCheckout = () => {
-    if (belowMinimum) return;
+    if (belowMinimum || isPaused) return;
     setDrawerOpen(false);
     navigate("/checkout");
   };
@@ -92,6 +96,22 @@ export default function CartDrawer() {
               : `${itemCount} item${itemCount > 1 ? "s" : ""} in your cart`}
           </SheetDescription>
         </SheetHeader>
+
+        {/* Paused-ordering banner — preempts the silent 503 on checkout */}
+        {isPaused && (
+          <div
+            data-testid="cart-paused-banner"
+            className="mx-5 mt-3 flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5"
+          >
+            <Pause size={16} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-body text-xs font-semibold text-red-700">Ordering is temporarily paused</p>
+              {pauseReason && (
+                <p className="font-body text-[11px] text-red-600/90 mt-0.5 leading-snug">{pauseReason}</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Minimum order banner */}
         {belowMinimum && (
@@ -356,11 +376,15 @@ export default function CartDrawer() {
             <button
               data-testid="cart-checkout-btn"
               onClick={handleCheckout}
-              disabled={belowMinimum}
+              disabled={belowMinimum || isPaused}
               className="w-full flex items-center justify-center gap-2 py-4 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-primary"
             >
-              {belowMinimum ? `$${amountToMinimum.toFixed(2)} more to checkout` : "Checkout"}
-              {!belowMinimum && <ArrowRight size={16} />}
+              {isPaused
+                ? "Ordering paused"
+                : belowMinimum
+                  ? `$${amountToMinimum.toFixed(2)} more to checkout`
+                  : "Checkout"}
+              {!belowMinimum && !isPaused && <ArrowRight size={16} />}
             </button>
           </SheetFooter>
         )}

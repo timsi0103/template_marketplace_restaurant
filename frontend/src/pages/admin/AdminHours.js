@@ -355,6 +355,7 @@ function OverviewCard() {
   const [loading, setLoading] = useState(true);
   const load = () => axios.get(`${API}/admin/store/overview`, { withCredentials: true })
     .then(({ data }) => setData(data))
+    .catch(() => { /* AdminLayout handles auth redirect; swallow here */ })
     .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
@@ -435,6 +436,7 @@ function HolidaysSection() {
 
   const load = () => axios.get(`${API}/admin/store/holidays`, { withCredentials: true })
     .then(({ data }) => setItems(data.holidays || []))
+    .catch(() => { /* swallow — error UI handled globally */ })
     .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
@@ -450,8 +452,10 @@ function HolidaysSection() {
   };
   const remove = async (h) => {
     if (!window.confirm(`Remove "${h.reason || h.date}"?`)) return;
-    await axios.delete(`${API}/admin/store/holidays/${h.id}`, { withCredentials: true });
-    toast.success("Holiday removed"); load();
+    try {
+      await axios.delete(`${API}/admin/store/holidays/${h.id}`, { withCredentials: true });
+      toast.success("Holiday removed"); load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Remove failed"); }
   };
 
   return (
@@ -519,6 +523,7 @@ function SpecialHoursSection() {
 
   const load = () => axios.get(`${API}/admin/store/special-hours`, { withCredentials: true })
     .then(({ data }) => setItems(data.special_hours || []))
+    .catch(() => { /* swallow — error UI handled globally */ })
     .finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
@@ -537,8 +542,10 @@ function SpecialHoursSection() {
   };
   const remove = async (sp) => {
     if (!window.confirm(`Remove special hours for ${sp.date}?`)) return;
-    await axios.delete(`${API}/admin/store/special-hours/${sp.id}`, { withCredentials: true });
-    toast.success("Removed"); load();
+    try {
+      await axios.delete(`${API}/admin/store/special-hours/${sp.id}`, { withCredentials: true });
+      toast.success("Removed"); load();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Remove failed"); }
   };
 
   return (

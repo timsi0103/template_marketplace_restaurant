@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useStoreStatus } from "@/contexts/StoreStatusContext";
 import AddressAutocomplete from "@/components/checkout/AddressAutocomplete";
 import TimeSlotPicker from "@/components/checkout/TimeSlotPicker";
 import CheckoutStepper from "@/components/checkout/CheckoutStepper";
@@ -32,6 +33,9 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { items, subtotal, clearCart, promo: cartPromo, applyPromoCode: applyPromoViaCart, clearPromo: clearPromoFromCart } = useCart();
+  const { status: storeStatus } = useStoreStatus();
+  const isPaused = !!storeStatus?.pause_ordering;
+  const pauseReason = storeStatus?.pause_reason || "We're temporarily not accepting orders.";
   const [searchParams] = useSearchParams();
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -218,6 +222,10 @@ export default function CheckoutPage() {
 
   const placeOrder = async () => {
     if (!canAdvance() || placing) return;
+    if (isPaused) {
+      toast.error("Ordering is paused", { description: pauseReason });
+      return;
+    }
     setPlacing(true);
     try {
       saveAddressIfNew();
@@ -304,6 +312,19 @@ export default function CheckoutPage() {
         </h1>
 
         <CheckoutStepper steps={effectiveSteps} currentKey={currentStepKey} />
+
+        {isPaused && (
+          <div
+            data-testid="checkout-paused-banner"
+            className="mt-4 rounded-2xl border border-red-300 bg-red-50 px-4 sm:px-5 py-3 flex items-start gap-3"
+          >
+            <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-heading text-sm sm:text-base font-bold text-red-700">Ordering is temporarily paused</p>
+              <p className="font-body text-xs text-red-600/90 mt-0.5 leading-snug">{pauseReason} You can keep browsing — we'll start accepting orders again soon.</p>
+            </div>
+          </div>
+        )}
 
         <CheckoutCouponBanner
           subtotal={pricing.sub}
@@ -393,11 +414,11 @@ export default function CheckoutPage() {
                 <button
                   data-testid="checkout-place-order-btn"
                   onClick={placeOrder}
-                  disabled={!canAdvance() || placing}
+                  disabled={!canAdvance() || placing || isPaused}
                   className="px-6 py-3 bg-brand-primary text-white font-body text-sm font-semibold rounded-full hover:bg-brand-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all inline-flex items-center gap-2"
                 >
                   {placing ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
-                  {placing ? "Redirecting…" : `Pay $${pricing.total.toFixed(2)}`}
+                  {isPaused ? "Ordering paused" : placing ? "Redirecting…" : `Pay $${pricing.total.toFixed(2)}`}
                 </button>
               )}
             </div>
