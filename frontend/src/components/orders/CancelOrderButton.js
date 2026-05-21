@@ -38,6 +38,20 @@ export default function CancelOrderButton({ order, onCancelled }) {
 
   useEffect(() => { fetchElig(); }, [fetchElig]);
 
+  // Pick up admin policy changes without a manual refresh:
+  //  • re-check on window focus
+  //  • re-check every 30 seconds while the page is open
+  useEffect(() => {
+    if (!order?.id) return;
+    const onFocus = () => fetchElig();
+    window.addEventListener("focus", onFocus);
+    const interval = setInterval(fetchElig, 30000);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      clearInterval(interval);
+    };
+  }, [order?.id, fetchElig]);
+
   // Tick every second to update countdown
   useEffect(() => {
     if (!elig?.eligible) return;
