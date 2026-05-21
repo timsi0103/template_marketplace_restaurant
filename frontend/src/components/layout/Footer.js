@@ -1,8 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
-import { ArrowRight, MapPin, Phone, Mail, Loader2 } from "lucide-react";
+import { MapPin, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
 import { useStorefront } from "@/hooks/useStorefront";
 
 const shopLinks = [
@@ -39,9 +37,6 @@ const SOCIAL_FALLBACKS = {
 export default function Footer() {
   const location = useLocation();
   const storefront = useStorefront();
-  const [email, setEmail] = useState("");
-  const [subscribing, setSubscribing] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
   const isAdmin = location.pathname.startsWith("/admin");
 
   if (isAdmin) return null;
@@ -52,72 +47,8 @@ export default function Footer() {
   const notReady = (label) =>
     toast(`${label} — coming soon`, { description: "We're polishing this page. It'll be live shortly." });
 
-  const subscribe = async (e) => {
-    e?.preventDefault?.();
-    const trimmed = email.trim();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      toast.error("Please enter a valid email");
-      return;
-    }
-    setSubscribing(true);
-    try {
-      const resp = await fetch("/api/newsletter/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed, source: "footer" }),
-      });
-      if (!resp.ok) {
-        const detail = await resp.json().catch(() => ({}));
-        toast.error(detail?.detail || "Subscription failed");
-        return;
-      }
-      setSubscribed(true);
-      toast.success("You're in. Check your inbox for the first edition.");
-      setEmail("");
-    } catch {
-      toast.error("Network error — please try again");
-    } finally {
-      setSubscribing(false);
-    }
-  };
-
   return (
     <footer data-testid="main-footer" className="bg-brand-text mb-16 md:mb-0">
-      {/* Newsletter Banner */}
-      <div data-testid="footer-newsletter" className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 sm:py-14">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <h3 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                Join the Curation
-              </h3>
-              <p className="font-body text-sm text-white/60 mt-1 max-w-md">
-                Receive weekly editorial picks, seasonal menus, and exclusive offers from our kitchen.
-              </p>
-            </div>
-            <form onSubmit={subscribe} noValidate className="flex gap-2 w-full max-w-sm">
-              <Input
-                data-testid="footer-email-input"
-                type="text"
-                placeholder="your@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={subscribed}
-                className="bg-white/10 border-white/15 text-white placeholder:text-white/40 font-body text-sm h-11 focus:border-brand-orange focus:ring-brand-orange"
-              />
-              <button
-                data-testid="footer-subscribe-btn"
-                type="submit"
-                disabled={subscribing || subscribed}
-                className="px-5 py-2.5 bg-brand-orange text-white font-body text-sm font-semibold rounded-md hover:bg-brand-orange-hover active:scale-95 disabled:opacity-70 transition-all flex items-center gap-1.5 flex-shrink-0"
-              >
-                {subscribed ? "Subscribed ✓" : subscribing ? <><Loader2 size={14} className="animate-spin" /> …</> : <>Subscribe <ArrowRight size={14} /></>}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
       {/* Main Footer Grid */}
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 sm:py-16">
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-5 gap-10 lg:gap-8">
