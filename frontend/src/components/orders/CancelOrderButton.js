@@ -20,6 +20,12 @@ export default function CancelOrderButton({ order, onCancelled }) {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
+  const requireReason = elig?.reason_required !== false;
+  const openDialog = () => {
+    setStep(requireReason ? 1 : 2);
+    setOpen(true);
+  };
+
   const fetchElig = useCallback(async () => {
     if (!order?.id || order.status === "cancelled") return;
     try {
@@ -82,7 +88,7 @@ export default function CancelOrderButton({ order, onCancelled }) {
 
   const close = () => {
     setOpen(false);
-    setTimeout(() => { setStep(1); setNotes(""); setReasonCode("changed_mind"); setResult(null); }, 250);
+    setTimeout(() => { setStep(requireReason ? 1 : 2); setNotes(""); setReasonCode("changed_mind"); setResult(null); }, 250);
   };
 
   return (
@@ -99,7 +105,7 @@ export default function CancelOrderButton({ order, onCancelled }) {
         </div>
         <button
           data-testid="cancel-order-open-btn"
-          onClick={() => setOpen(true)}
+          onClick={openDialog}
           className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-red-600 text-white font-body text-sm font-semibold rounded-full hover:bg-red-700 transition"
         >
           <XCircle size={14} /> Cancel order
@@ -146,7 +152,7 @@ export default function CancelOrderButton({ order, onCancelled }) {
                 <RefundRow label="Estimated to arrive" value="3–5 business days" />
               </div>
               <div className="mt-4 flex gap-2 justify-end">
-                <button onClick={() => setStep(1)} data-testid="cancel-confirm-back-btn" className="px-4 py-2 border border-brand-border text-brand-text-secondary font-body text-sm rounded-full hover:bg-brand-surface">Back</button>
+                <button onClick={() => requireReason ? setStep(1) : close()} data-testid="cancel-confirm-back-btn" className="px-4 py-2 border border-brand-border text-brand-text-secondary font-body text-sm rounded-full hover:bg-brand-surface">{requireReason ? "Back" : "Keep order"}</button>
                 <button
                   onClick={submit}
                   disabled={submitting}

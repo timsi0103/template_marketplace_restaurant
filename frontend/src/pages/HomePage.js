@@ -186,12 +186,17 @@ export default function HomePage() {
               </div>
             </div>
             {/* Hero Image */}
-            <div className="relative h-48 sm:h-64 lg:h-auto overflow-hidden">
+            <div className="relative h-48 sm:h-64 lg:h-auto overflow-hidden bg-brand-bg">
               <img
                 src={dynamicHero.image}
                 alt={dynamicHero.title}
                 data-testid="hero-image"
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  if (e.currentTarget.src !== heroProduct.image) {
+                    e.currentTarget.src = heroProduct.image;
+                  }
+                }}
               />
             </div>
           </div>

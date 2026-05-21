@@ -26,23 +26,26 @@ function fmt(iso) {
 
 export default function AdminOrders() {
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState("active"); // active | all
   const [q, setQ] = useState("");
   const [manageId, setManageId] = useState(null);
 
-  const load = async () => {
+  const load = async (opts = {}) => {
+    if (opts.manual) setRefreshing(true);
     try {
       if (q.trim()) {
         const { data } = await axios.get(`${API}/admin/search/orders`, { params: { q: q.trim() }, withCredentials: true });
         setOrders(data.orders || []);
-        return;
+      } else {
+        const path = filter === "active" ? `${API}/admin/queue` : `${API}/orders?all=1`;
+        const { data } = await axios.get(path, { withCredentials: true });
+        setOrders(data.queue || data.orders || []);
       }
-      const path = filter === "active" ? `${API}/admin/queue` : `${API}/orders?all=1`;
-      const { data } = await axios.get(path, { withCredentials: true });
-      setOrders(data.queue || data.orders || []);
+      if (opts.manual) toast.success("Orders refreshed");
     } catch { toast.error("Could not load orders"); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setRefreshing(false); }
   };
   useEffect(() => { setLoading(true); load(); /* eslint-disable-next-line */ }, [filter]);
   useEffect(() => {
@@ -86,8 +89,8 @@ export default function AdminOrders() {
               >{k}</button>
             ))}
           </div>
-          <button onClick={load} data-testid="refresh-orders-btn" className="inline-flex items-center gap-2 text-sm text-brand-text-secondary hover:text-brand-primary">
-            <RefreshCw size={14} />
+          <button onClick={() => load({ manual: true })} disabled={refreshing} data-testid="refresh-orders-btn" title="Refresh orders" className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-brand-border text-brand-text-secondary hover:text-brand-primary hover:border-brand-primary/40 transition disabled:opacity-50">
+            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
           </button>
         </div>
       </div>

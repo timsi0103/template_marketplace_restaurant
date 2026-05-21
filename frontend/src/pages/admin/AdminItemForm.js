@@ -55,14 +55,16 @@ export default function AdminItemForm() {
   // Load categories tree
   useEffect(() => {
     axios.get(`${API_BASE}/categories/tree`)
-      .then(({ data }) => {
-        const cats = data.categories || [];
-        setCategories(cats);
-        if (!isEdit && cats.length > 0) {
-          setForm((p) => (p.category ? p : { ...p, category: cats[0].slug }));
-        }
-      }).catch(() => setCategories([]));
-  }, [isEdit]);
+      .then(({ data }) => setCategories(data.categories || []))
+      .catch(() => setCategories([]));
+  }, []);
+
+  // Auto-select first category once it's loaded and we're creating a new item
+  useEffect(() => {
+    if (isEdit) return;
+    if (categories.length === 0) return;
+    setForm((p) => (p.category ? p : { ...p, category: categories[0].slug }));
+  }, [categories, isEdit]);
 
   // Load dietary catalog (controlled vocabulary)
   useEffect(() => {

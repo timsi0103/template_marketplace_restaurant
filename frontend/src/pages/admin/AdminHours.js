@@ -319,7 +319,7 @@ function WeeklyGrid({ hours, onCell, onCopyDayRow, onApplyAll }) {
                           disabled={closed}
                           value={svc.open_time}
                           onChange={(e) => onCell(day, s.key, "open_time", e.target.value)}
-                          className="h-9 w-24 bg-brand-bg border-brand-border"
+                          className="h-9 w-[112px] px-2 bg-brand-bg border-brand-border tabular-nums"
                         />
                         <span className="text-xs text-brand-text-secondary">–</span>
                         <Input
@@ -328,7 +328,7 @@ function WeeklyGrid({ hours, onCell, onCopyDayRow, onApplyAll }) {
                           disabled={closed}
                           value={svc.close_time}
                           onChange={(e) => onCell(day, s.key, "close_time", e.target.value)}
-                          className="h-9 w-24 bg-brand-bg border-brand-border"
+                          className="h-9 w-[112px] px-2 bg-brand-bg border-brand-border tabular-nums"
                         />
                         <Switch
                           data-testid={`${s.key}-open-toggle-${day}`}
@@ -560,9 +560,9 @@ function SpecialHoursSection() {
         {SERVICES.map((s) => (
           <div key={s.key} className="sm:col-span-2 flex items-center gap-2 flex-wrap bg-brand-bg rounded-lg p-2.5">
             <span className="w-16 text-xs font-body font-semibold text-brand-text">{s.label}</span>
-            <Input data-testid={`special-${s.key}-open`} type="time" value={form[s.key].open_time} onChange={(e) => setForm({ ...form, [s.key]: { ...form[s.key], open_time: e.target.value } })} className="h-9 w-24" disabled={form[s.key].closed} />
+            <Input data-testid={`special-${s.key}-open`} type="time" value={form[s.key].open_time} onChange={(e) => setForm({ ...form, [s.key]: { ...form[s.key], open_time: e.target.value } })} className="h-9 w-[112px] px-2 tabular-nums" disabled={form[s.key].closed} />
             <span className="text-xs text-brand-text-secondary">–</span>
-            <Input data-testid={`special-${s.key}-close`} type="time" value={form[s.key].close_time} onChange={(e) => setForm({ ...form, [s.key]: { ...form[s.key], close_time: e.target.value } })} className="h-9 w-24" disabled={form[s.key].closed} />
+            <Input data-testid={`special-${s.key}-close`} type="time" value={form[s.key].close_time} onChange={(e) => setForm({ ...form, [s.key]: { ...form[s.key], close_time: e.target.value } })} className="h-9 w-[112px] px-2 tabular-nums" disabled={form[s.key].closed} />
             <label className="inline-flex items-center gap-1.5 text-xs text-brand-text-secondary">
               <Switch data-testid={`special-${s.key}-toggle`} checked={!form[s.key].closed} onCheckedChange={(v) => setForm({ ...form, [s.key]: { ...form[s.key], closed: !v } })} />
               {form[s.key].closed ? "Closed" : "Open"}

@@ -58,8 +58,10 @@ export default function AdminLiveQueue() {
   const [fulfillFilter, setFulfillFilter] = useState("all");
   const [sortBy, setSortBy] = useState("placed_asc");
   const [throttle, setThrottle] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchQueue = useCallback(async (opts = {}) => {
+    if (opts.manual) setRefreshing(true);
     try {
       const { data } = await axios.get(`${API}/admin/queue/live`, { withCredentials: true });
       const fresh = data.orders || [];
@@ -89,8 +91,9 @@ export default function AdminLiveQueue() {
         const { data: st } = await axios.get(`${API}/admin/throttle/status`, { withCredentials: true });
         setThrottle(st);
       } catch { /* ignore */ }
+      if (opts.manual) toast.success("Queue refreshed");
     } catch { /* swallow during poll */ }
-    finally { setLoading(false); }
+    finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => {
@@ -256,10 +259,12 @@ export default function AdminLiveQueue() {
             </button>
             <button
               data-testid="refresh-btn"
-              onClick={() => fetchQueue()}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-brand-border text-brand-text-secondary hover:text-brand-primary"
+              onClick={() => fetchQueue({ manual: true })}
+              disabled={refreshing}
+              className="inline-flex items-center justify-center w-9 h-9 rounded-full border border-brand-border text-brand-text-secondary hover:text-brand-primary hover:border-brand-primary/40 transition disabled:opacity-50"
+              title="Refresh queue"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
             </button>
           </div>
         </div>

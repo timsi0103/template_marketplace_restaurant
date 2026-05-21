@@ -220,6 +220,12 @@ async def create_order(body: OrderCreate, request: Request):
     if not body.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    # Block new orders when the store is paused (admin emergency toggle)
+    store_settings = await db.store_settings.find_one({"type": "hours"}, {"_id": 0})
+    if store_settings and store_settings.get("pause_ordering"):
+        reason = (store_settings.get("pause_reason") or "").strip() or "We are temporarily not accepting orders."
+        raise HTTPException(status_code=503, detail=f"Ordering paused: {reason}")
+
     items_enriched = await _enrich_items(body.items)
 
     user_id = None

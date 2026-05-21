@@ -89,7 +89,7 @@ export default function AdminOverview() {
       <div data-testid="service-queue" className="bg-brand-surface border border-brand-border rounded-xl p-6">
         <div className="flex items-center justify-between mb-6">
           <div><h2 className="font-heading text-xl font-bold text-brand-text">Live Service Queue</h2><p className="font-body text-sm text-brand-text-secondary mt-0.5">Real-time order orchestration.</p></div>
-          <button data-testid="queue-filter-btn" className="w-9 h-9 rounded-lg border border-brand-border flex items-center justify-center hover:bg-brand-bg transition-colors"><Filter size={16} className="text-brand-text-secondary" /></button>
+          <Link to="/admin/queue?filter=open" data-testid="queue-filter-btn" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-brand-border hover:bg-brand-bg hover:border-brand-primary/40 transition-colors font-body text-xs font-semibold text-brand-text-secondary hover:text-brand-primary" title="Filter & manage orders in Live Queue"><Filter size={14} /> Filter</Link>
         </div>
         <div className="space-y-3">
           {queueItems.map((item) => (
@@ -101,7 +101,7 @@ export default function AdminOverview() {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1 text-brand-text-secondary"><Clock size={12} /><span className={`font-body text-xs ${item.status === "NEW ORDER" ? "text-brand-orange font-medium" : ""}`}>{item.time}</span></div>
                 <span className={`px-2.5 py-1 rounded font-body text-[10px] font-semibold uppercase tracking-wider ${item.status === "READY TO SERVE" ? "bg-green-50 text-green-600" : item.status === "NEW ORDER" ? "bg-brand-orange/10 text-brand-orange" : "bg-brand-bg text-brand-text-secondary border border-brand-border"}`}>{item.status}</span>
-                {item.status === "READY TO SERVE" ? (<button data-testid={`queue-complete-${item.id}`} className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center hover:bg-brand-primary-hover transition-colors"><Check size={14} /></button>) : (<button data-testid={`queue-more-${item.id}`} className="w-8 h-8 rounded-lg bg-brand-border/50 flex items-center justify-center hover:bg-brand-border transition-colors"><MoreHorizontal size={14} className="text-brand-text-secondary" /></button>)}
+                {item.status === "READY TO SERVE" ? (<Link to="/admin/queue" data-testid={`queue-complete-${item.id}`} className="w-8 h-8 rounded-lg bg-brand-primary text-white flex items-center justify-center hover:bg-brand-primary-hover transition-colors" title="Open in Live Queue"><Check size={14} /></Link>) : (<Link to="/admin/queue" data-testid={`queue-more-${item.id}`} className="w-8 h-8 rounded-lg bg-brand-border/50 flex items-center justify-center hover:bg-brand-border transition-colors" title="Open in Live Queue"><MoreHorizontal size={14} className="text-brand-text-secondary" /></Link>)}
               </div>
             </div>
           ))}
