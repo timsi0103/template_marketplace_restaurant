@@ -3,7 +3,7 @@ import os
 import requests
 import uuid
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://restaurant-stack.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://job-builder-6.preview.emergentagent.com").rstrip("/")
 
 
 def test_storefront_settings_returns_social_urls():

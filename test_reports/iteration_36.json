@@ -57,6 +57,6 @@
   "seed_data_creation": "No new seed data created. Confirmed seeded chocolate desserts present (item-011 Valrhona 70% Lava Cake, item-012 Triple-Chocolate Mousse). 4 orders auto-created by demo flow during testing.",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "When testing this app, set REACT_APP_BACKEND_URL=https://restaurant-stack.preview.emergentagent.com before pytest so cookies (secure=true samesite=none) travel over HTTPS. The test_iteration36_bug_fixes.py auto-loads from frontend/.env if env var missing. Cookies are bound to internal.preview.emergentagent.com but redirect chain handles them. The Closed overlay only blocks '/' — do not be alarmed when homepage shows the overlay but other routes render normally. Backend chocolate items are seeded idempotently by item_id every restart.",
+  "context_for_next_testing_agent": "When testing this app, set REACT_APP_BACKEND_URL=https://job-builder-6.preview.emergentagent.com before pytest so cookies (secure=true samesite=none) travel over HTTPS. The test_iteration36_bug_fixes.py auto-loads from frontend/.env if env var missing. Cookies are bound to internal.preview.emergentagent.com but redirect chain handles them. The Closed overlay only blocks '/' — do not be alarmed when homepage shows the overlay but other routes render normally. Backend chocolate items are seeded idempotently by item_id every restart.",
   "rca of the issue": "N/A — feature batch validated."
 }
