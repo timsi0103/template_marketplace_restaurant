@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Loader2, Plus, Shield, Trash2, Save, Check, Edit3, X, RefreshCw, Grid3x3, ListChecks } from "lucide-react";
@@ -17,15 +17,16 @@ export default function AdminRoles() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState(null); // role id
 
-  useEffect(() => { load(); }, []);
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await axios.get(`${API}/admin/roles`, { withCredentials: true });
       setData(data);
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed"); }
     finally { setLoading(false); }
-  }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading || !data) return <div data-testid="roles-loading" className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-brand-primary" /></div>;
 

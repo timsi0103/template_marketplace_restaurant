@@ -6,6 +6,7 @@ Tests for: /api/admin/kds/settings, /api/admin/kds/board,
 import pytest
 import requests
 import os
+import subprocess
 from datetime import datetime, timezone, timedelta
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
@@ -13,6 +14,20 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 # Test credentials
 ADMIN_EMAIL = "admin@culinaryeditorial.com"
 ADMIN_PASSWORD = "Admin123!"
+
+
+def _run_mongosh(script: str):
+    """Safely execute a mongosh script using list-form subprocess.run.
+
+    Using shell=True with f-string interpolation would be a command-injection
+    vector; passing args as a list prevents shell parsing of the script body.
+    """
+    return subprocess.run(
+        ["mongosh", "--quiet", "--eval", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 class TestKDSSettingsAuth:
@@ -328,18 +343,14 @@ class TestKDSIntegration:
         })
         assert login_resp.status_code == 200, f"Admin login failed: {login_resp.text}"
         self.test_order_id = None
-    
+
     def test_create_test_order_and_verify_on_board(self):
         """Create a test order via MongoDB and verify it appears on board"""
-        import subprocess
-        import json
-        
         # Create a test order directly in MongoDB
         order_id = f"kds-test-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         order_number = f"KDS-TEST-{datetime.now(timezone.utc).strftime('%H%M%S')}"
-        
-        mongo_cmd = f'''
-        mongosh --quiet --eval "
+
+        mongo_script = f"""
         use('test_database');
         db.orders.insertOne({{
             id: '{order_id}',
@@ -372,10 +383,9 @@ class TestKDSIntegration:
             estimated_minutes: 15
         }});
         print('Order created: {order_id}');
-        "
-        '''
-        
-        result = subprocess.run(mongo_cmd, shell=True, capture_output=True, text=True)
+        """
+
+        result = _run_mongosh(mongo_script)
         print(f"MongoDB insert result: {result.stdout} {result.stderr}")
         
         self.test_order_id = order_id
@@ -428,25 +438,20 @@ class TestKDSIntegration:
         # But the status should be 'ready' now
         
         # Cleanup
-        cleanup_cmd = f'''
-        mongosh --quiet --eval "
+        cleanup_script = f"""
         use('test_database');
         db.orders.deleteOne({{id: '{order_id}'}});
         print('Cleaned up test order');
-        "
-        '''
-        subprocess.run(cleanup_cmd, shell=True, capture_output=True, text=True)
+        """
+        _run_mongosh(cleanup_script)
         print("PASS: Test order cleaned up")
     
     def test_delivery_order_bump_sets_out_for_delivery(self):
         """Bump on delivery order sets status to 'out_for_delivery'"""
-        import subprocess
-        
         order_id = f"kds-delivery-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
         order_number = f"KDS-DEL-{datetime.now(timezone.utc).strftime('%H%M%S')}"
-        
-        mongo_cmd = f'''
-        mongosh --quiet --eval "
+
+        mongo_script = f"""
         use('test_database');
         db.orders.insertOne({{
             id: '{order_id}',
@@ -461,10 +466,9 @@ class TestKDSIntegration:
             created_at: new Date(),
             address: {{line1: '123 Test St', city: 'Test City'}}
         }});
-        "
-        '''
-        subprocess.run(mongo_cmd, shell=True, capture_output=True, text=True)
-        
+        """
+        _run_mongosh(mongo_script)
+
         # Bump the delivery order
         response = self.session.post(f"{BASE_URL}/api/admin/kds/orders/{order_id}/bump")
         assert response.status_code == 200, f"Bump failed: {response.text}"
@@ -475,23 +479,18 @@ class TestKDSIntegration:
         print("PASS: Delivery order bumped to 'out_for_delivery'")
         
         # Cleanup
-        cleanup_cmd = f'''
-        mongosh --quiet --eval "
+        cleanup_script = f"""
         use('test_database');
         db.orders.deleteOne({{id: '{order_id}'}});
-        "
-        '''
-        subprocess.run(cleanup_cmd, shell=True, capture_output=True, text=True)
+        """
+        _run_mongosh(cleanup_script)
     
     def test_station_filter_returns_only_matching_items(self):
         """Station filter returns only orders with items matching station categories"""
-        import subprocess
-        
         order_id = f"kds-station-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        
+
         # Create order with mixed categories
-        mongo_cmd = f'''
-        mongosh --quiet --eval "
+        mongo_script = f"""
         use('test_database');
         db.orders.insertOne({{
             id: '{order_id}',
@@ -510,10 +509,9 @@ class TestKDSIntegration:
             accepted_at: new Date(),
             created_at: new Date()
         }});
-        "
-        '''
-        subprocess.run(mongo_cmd, shell=True, capture_output=True, text=True)
-        
+        """
+        _run_mongosh(mongo_script)
+
         # Test grill station (should only show mains/entrees)
         response = self.session.get(f"{BASE_URL}/api/admin/kds/board", params={"station": "grill"})
         assert response.status_code == 200
@@ -541,13 +539,11 @@ class TestKDSIntegration:
             print(f"PASS: Bar station filter shows only drinks/cocktails items")
         
         # Cleanup
-        cleanup_cmd = f'''
-        mongosh --quiet --eval "
+        cleanup_script = f"""
         use('test_database');
         db.orders.deleteOne({{id: '{order_id}'}});
-        "
-        '''
-        subprocess.run(cleanup_cmd, shell=True, capture_output=True, text=True)
+        """
+        _run_mongosh(cleanup_script)
 
 
 class TestKDSItemStatusValidation:
@@ -565,13 +561,10 @@ class TestKDSItemStatusValidation:
     
     def test_invalid_line_index_returns_400(self):
         """PATCH with invalid line_index returns 400"""
-        import subprocess
-        
         order_id = f"kds-idx-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
-        
+
         # Create order with 1 item
-        mongo_cmd = f'''
-        mongosh --quiet --eval "
+        mongo_script = f"""
         use('test_database');
         db.orders.insertOne({{
             id: '{order_id}',
@@ -584,10 +577,9 @@ class TestKDSItemStatusValidation:
             total: 10.00,
             created_at: new Date()
         }});
-        "
-        '''
-        subprocess.run(mongo_cmd, shell=True, capture_output=True, text=True)
-        
+        """
+        _run_mongosh(mongo_script)
+
         # Try to update item at index 5 (doesn't exist)
         response = self.session.patch(
             f"{BASE_URL}/api/admin/kds/orders/{order_id}/items/5",
@@ -605,13 +597,11 @@ class TestKDSItemStatusValidation:
         print("PASS: Invalid line_index returns 400")
         
         # Cleanup
-        cleanup_cmd = f'''
-        mongosh --quiet --eval "
+        cleanup_script = f"""
         use('test_database');
         db.orders.deleteOne({{id: '{order_id}'}});
-        "
-        '''
-        subprocess.run(cleanup_cmd, shell=True, capture_output=True, text=True)
+        """
+        _run_mongosh(cleanup_script)
 
 
 if __name__ == "__main__":

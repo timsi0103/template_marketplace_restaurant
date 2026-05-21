@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -16,8 +16,7 @@ export default function AdminStaff() {
   const [roles, setRoles] = useState([]);
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  useEffect(() => { load(); }, []);
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [s, r] = await Promise.all([
@@ -27,7 +26,9 @@ export default function AdminStaff() {
       setData(s.data); setRoles(r.data.roles);
     } catch (e) { toast.error(e?.response?.data?.detail || "Failed to load"); }
     finally { setLoading(false); }
-  }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   if (loading || !data) return <div data-testid="staff-loading" className="flex justify-center py-20"><Loader2 size={32} className="animate-spin text-brand-primary" /></div>;
 

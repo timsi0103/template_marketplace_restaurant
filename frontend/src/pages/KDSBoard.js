@@ -353,7 +353,7 @@ function OrderCard({ order, settings, onItemStatus, onBump }) {
                 {it.modifiers?.length > 0 && (
                   <ul className="mt-0.5">
                     {it.modifiers.map((m, i) => (
-                      <li key={i} className="font-body text-[11px] text-[#555] flex items-start gap-1">
+                      <li key={`mod-${m.group || ""}-${m.name || ""}-${i}`} className="font-body text-[11px] text-[#555] flex items-start gap-1">
                         <span className="text-brand-primary">+</span>
                         <span>{m.group}: <strong>{m.name}</strong></span>
                       </li>

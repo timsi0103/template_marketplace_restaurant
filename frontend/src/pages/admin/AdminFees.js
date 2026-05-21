@@ -334,7 +334,7 @@ function TieredEditor({ tiers, onChange }) {
         <p className="text-xs text-brand-text-secondary py-1">No tiers yet. Use the flat_amount above as fallback.</p>
       )}
       {sorted.map((t, i) => (
-        <div key={i} data-testid={`tier-row-${i}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center mb-2">
+        <div key={`tier-${t.min_subtotal ?? "x"}-${t.fee ?? "x"}-${i}`} data-testid={`tier-row-${i}`} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center mb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-brand-text-secondary uppercase tracking-wider">Min $</span>
             <Input data-testid={`tier-min-${i}`} type="number" step="0.01" value={t.min_subtotal} onChange={(e) => update(tiers.indexOf(t), "min_subtotal", e.target.value)} className="h-9" />
@@ -471,7 +471,7 @@ function CheckoutPreview({ regionId, snapshot }) {
       ) : (
         <div className="space-y-1 text-sm" data-testid="preview-totals">
           {quote.lines.map((l, i) => (
-            <Row key={i} testid={`preview-line-${i}`} label={`${l.qty}× ${l.name || l.item_id}`} value={`$${l.line_total.toFixed(2)}`} sub />
+            <Row key={l.item_id ? `${l.item_id}-${i}` : `line-${i}`} testid={`preview-line-${i}`} label={`${l.qty}× ${l.name || l.item_id}`} value={`$${l.line_total.toFixed(2)}`} sub />
           ))}
           <div className="border-t border-brand-border pt-2 mt-2" />
           <Row testid="preview-subtotal" label="Subtotal" value={`$${quote.subtotal.toFixed(2)}`} />
@@ -487,7 +487,7 @@ function CheckoutPreview({ regionId, snapshot }) {
           {quote.tax_breakdown.length > 1 && (
             <div className="ml-2 pl-2 border-l border-brand-border" data-testid="preview-tax-breakdown">
               {quote.tax_breakdown.map((b, i) => (
-                <div key={i} className="text-[11px] text-brand-text-secondary flex justify-between">
+                <div key={`tax-${b.rate_pct}-${i}`} className="text-[11px] text-brand-text-secondary flex justify-between">
                   <span>{b.rate_pct}%</span><span>${b.amount.toFixed(2)}</span>
                 </div>
               ))}

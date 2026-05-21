@@ -79,7 +79,7 @@ export default function AdminLiveQueue() {
                 icon: "/favicon.ico",
                 tag: "new-order",
               });
-            } catch { /* ignore */ }
+            } catch (err) { console.warn("Desktop notification failed:", err?.message || err); }
           }
         }
       }
@@ -90,9 +90,9 @@ export default function AdminLiveQueue() {
       try {
         const { data: st } = await axios.get(`${API}/admin/throttle/status`, { withCredentials: true });
         setThrottle(st);
-      } catch { /* ignore */ }
+      } catch (err) { console.warn("Throttle status fetch failed:", err?.message || err); }
       if (opts.manual) toast.success("Queue refreshed");
-    } catch { /* swallow during poll */ }
+    } catch (err) { console.warn("Live queue poll failed:", err?.message || err); }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 

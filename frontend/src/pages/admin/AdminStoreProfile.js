@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import { toast } from "sonner";
@@ -47,15 +47,15 @@ function SectionCard({ title, subtitle, icon: Icon, children, right }) {
 function CompletionCard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const load = () => axios.get(`${API}/admin/store/profile-completion`, { withCredentials: true })
+  const load = useCallback(() => axios.get(`${API}/admin/store/profile-completion`, { withCredentials: true })
     .then(({ data }) => setData(data))
-    .finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+    .finally(() => setLoading(false)), []);
+  useEffect(() => { load(); }, [load]);
   useEffect(() => {
     // Refetch every 30s so onboarding feels live as the admin saves data
     const t = setInterval(load, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [load]);
 
   return (
     <SectionCard
@@ -104,10 +104,10 @@ function LocationsCard() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
 
-  const load = () => axios.get(`${API}/admin/store/locations`, { withCredentials: true })
+  const load = useCallback(() => axios.get(`${API}/admin/store/locations`, { withCredentials: true })
     .then(({ data }) => setItems(data.locations || []))
-    .finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+    .finally(() => setLoading(false)), []);
+  useEffect(() => { load(); }, [load]);
 
   const startCreate = () => setEditing({ name: "", address: "", phone: "", email: "", hours: {}, is_primary: items.length === 0, notes: "" });
 
@@ -241,7 +241,7 @@ function LocationForm({ value, onChange, onCancel, onSave }) {
             value={JSON.stringify(value.hours || {}, null, 0)}
             onChange={(e) => {
               try { onChange({ ...value, hours: JSON.parse(e.target.value || "{}") }); }
-              catch { /* ignore invalid JSON until parseable */ }
+              catch (err) { /* invalid JSON while typing — preserve last good state */ void err; }
             }}
           />
         </div>
@@ -273,10 +273,10 @@ function GoogleBusinessCard() {
   const [emailDraft, setEmailDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = () => axios.get(`${API}/admin/store/google-business`, { withCredentials: true })
+  const load = useCallback(() => axios.get(`${API}/admin/store/google-business`, { withCredentials: true })
     .then(({ data }) => { setState(data); if (data.account_email) setEmailDraft(data.account_email); })
-    .finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
+    .finally(() => setLoading(false)), []);
+  useEffect(() => { load(); }, [load]);
 
   const connect = async () => {
     if (!emailDraft || !/\S+@\S+\.\S+/.test(emailDraft)) { toast.error("Enter a valid Google account email"); return; }
@@ -404,7 +404,7 @@ function BrandingPreviewCard() {
           <div className="flex justify-between text-[10px]"><span>Order {sample.order_number}</span><span>{sample.date}</span></div>
           <div className="border-t border-dashed border-brand-border my-2" />
           {sample.items.map((it, i) => (
-            <div key={i} className="flex justify-between"><span>{it.qty}× {it.name}</span><span>${(it.qty * it.price).toFixed(2)}</span></div>
+            <div key={`${it.name}-${i}`} className="flex justify-between"><span>{it.qty}× {it.name}</span><span>${(it.qty * it.price).toFixed(2)}</span></div>
           ))}
           <div className="border-t border-dashed border-brand-border my-2" />
           <div className="flex justify-between"><span>Subtotal</span><span>${sample.subtotal.toFixed(2)}</span></div>
@@ -423,7 +423,7 @@ function BrandingPreviewCard() {
             <div className="text-sm font-body text-brand-text mb-3">Hi {brand === "Your Restaurant" ? "there" : "friend"} — thanks for your order <strong>{sample.order_number}</strong>. Here's what's coming:</div>
             <ul className="border-y border-brand-border divide-y divide-brand-border">
               {sample.items.map((it, i) => (
-                <li key={i} className="flex justify-between py-2 text-sm">
+                <li key={`email-${it.name}-${i}`} className="flex justify-between py-2 text-sm">
                   <span className="text-brand-text">{it.qty}× {it.name}</span>
                   <span className="text-brand-text-secondary">${(it.qty * it.price).toFixed(2)}</span>
                 </li>

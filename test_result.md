@@ -101,3 +101,53 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Apply code-review fixes: command-injection in test_kds.py, insecure random in payments.py, hardcoded demo creds in LoginPage, missing hook deps + array-index keys + empty catches across admin pages."
+
+backend:
+  - task: "Replace shell=True subprocess + insecure random"
+    implemented: true
+    working: true
+    file: "backend/tests/test_kds.py, backend/routes/payments.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "1) Eliminated all 8 `subprocess.run(..., shell=True)` calls in test_kds.py by routing them through `_run_mongosh(script)` which uses list-form subprocess (mongosh --quiet --eval <script>). 2) Replaced `random` module usage in payments.py mock saved-card generator with `secrets` module (secrets.choice / secrets.randbelow). No behavioral change — only the RNG source. Backend lint clean; backend service restarts and seeds successfully; storefront + login endpoints return 200. Please run smoke tests on /api/auth/login + /api/payments/checkout-session (or equivalent) + /api/orders to confirm payments path still works end-to-end."
+        - working: true
+          agent: "testing"
+          comment: "Smoke tests completed successfully (11/11 passed). Verified: (1) Auth - admin@culinaryeditorial.com and demo@culinaryeditorial.com login both return 200 with valid session cookies. (2) Payments path - created order via POST /api/orders, polled status via GET /api/payments/status/{session_id}, confirmed payment_status='paid' returned without errors. The secrets module change (lines 86-109 in payments.py) is working correctly - no import errors, no runtime exceptions in mock saved-card generation. (3) KDS board - GET /api/admin/kds/board returns 200 with admin auth. (4) Storefront - GET /api/storefront/settings returns 200. (5) Menu - GET /api/menu/items returns 200 with 12 items. (6) Reviews endpoints exist and respond correctly. Backend logs show all 200 OK responses, no exceptions or tracebacks related to the code-review fixes. The insecure random → secrets migration is complete and functional."
+
+frontend:
+  - task: "Hook deps, empty catches, array-index keys, env-var demo creds"
+    implemented: true
+    working: "NA"
+    file: "src/pages/LoginPage.js, src/pages/admin/{AdminThrottle,AdminStaff,AdminSEO,AdminRoles,AdminStoreProfile,AdminLiveQueue,AdminFees}.js, src/pages/{ProductDetailPage,KDSBoard}.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Surgical fixes only — no behavioral changes intended: (a) demo creds in LoginPage now read from REACT_APP_DEMO_{ADMIN,CUSTOMER}_{EMAIL,PASSWORD} with existing values as fallback; (b) wrapped data fetchers in useCallback and added to useEffect deps for AdminThrottle, AdminStaff, AdminSEO, AdminRoles, AdminStoreProfile; (c) replaced 5 empty catch blocks with console.warn logging (AdminThrottle, AdminSEO, AdminLiveQueue x3); (d) replaced array-index keys with stable composite keys in ProductDetailPage, AdminFees (tiers/preview/tax), AdminStoreProfile (receipt/email), KDSBoard (modifiers). ESLint clean. Login page renders with both demo buttons visible (screenshot verified)."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 2
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Replace shell=True subprocess + insecure random"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Code-review fixes applied. Critical security items (shell=True in test_kds.py, insecure random in payments.py) and high-value bug-prone items (hook deps, empty catches, array-index keys) are done. Skipped function/component complexity refactors and cart-localStorage 'fix' — explained in plan to the user. Please smoke-test: POST /api/auth/login (admin + customer), the payments mock-card path that generates last4/exp on order completion (via guest or authed checkout), and KDS board GET. test_credentials.md is populated."
+    - agent: "testing"
+      message: "Smoke testing complete. All critical backend paths validated successfully. The secrets module fix in payments.py is working correctly - no errors in mock saved-card generation. Auth endpoints (admin + demo customer) working. KDS board, storefront, menu, and reviews endpoints all returning 200. Payment flow (order creation → status polling) completes without errors. No regressions detected. Ready for main agent to summarize and finish."

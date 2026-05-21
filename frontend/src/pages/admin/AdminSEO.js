@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Loader2, Save, Globe, Search as SearchIcon, Share2, Braces, ArrowRight, Trash2, Plus, RotateCcw, Copy, ExternalLink, Download, ShieldCheck, Heart, FileCode, ListTree } from "lucide-react";
@@ -26,9 +26,7 @@ export default function AdminSEO() {
   const [robotsPreview, setRobotsPreview] = useState("");
   const [livePreview, setLivePreview] = useState(null);
 
-  useEffect(() => { loadAll(); }, []);
-
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     try {
       const [s, r, h] = await Promise.all([
@@ -39,9 +37,7 @@ export default function AdminSEO() {
       setData(s.data);
       setGlobalDraft(JSON.parse(JSON.stringify(s.data.global)));
       setGlobalOriginal(JSON.parse(JSON.stringify(s.data.global)));
-      const firstPage = s.data.pages.find((p) => p.page_key === activePageKey) || s.data.pages[0];
-      setPageDraft(JSON.parse(JSON.stringify(firstPage)));
-      setPageOriginal(JSON.parse(JSON.stringify(firstPage)));
+      // pageDraft initialization happens in the activePageKey-driven effect below
       setRedirects(r.data.redirects || []);
       setHealth(h.data);
     } catch (e) {
@@ -49,7 +45,9 @@ export default function AdminSEO() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   // When page key changes, reload drafts from full data
   useEffect(() => {
@@ -66,9 +64,11 @@ export default function AdminSEO() {
       try {
         const { data: d } = await axios.get(`${API}/seo/page/${pageDraft.page_key}`);
         setLivePreview(d);
-      } catch { /* ignore */ }
+      } catch (err) { console.warn("SEO live preview fetch failed:", err?.message || err); }
     }, 300);
     return () => clearTimeout(t);
+    // Intentionally watch only page_key — preview should not refire on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageDraft?.page_key]);
 
   const pageDirty = useMemo(() => JSON.stringify(pageDraft) !== JSON.stringify(pageOriginal), [pageDraft, pageOriginal]);
@@ -450,7 +450,7 @@ function SerpPreview({ url, title, description }) {
 
 function OgCardPreview({ url, title, description, image }) {
   let domain = "";
-  try { domain = new URL(url).hostname; } catch { /* ignore */ }
+  try { domain = new URL(url).hostname; } catch (err) { /* invalid URL — leave domain empty */ void err; }
   return (
     <div data-testid="seo-og-preview" className="bg-white border border-brand-border rounded-2xl overflow-hidden shadow-sm">
       <div className="text-[11px] uppercase tracking-wider text-brand-text-secondary font-body font-semibold mb-0 flex items-center gap-1.5 px-5 pt-4 pb-3"><Share2 size={12} /> Social card preview</div>

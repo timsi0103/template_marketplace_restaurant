@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Loader2, Save, Gauge, Zap, Pause, Play, Plus, Trash2, Clock } from "lucide-react";
@@ -21,7 +21,7 @@ export default function AdminThrottle() {
   const [prep, setPrep] = useState({});
   const [newCat, setNewCat] = useState("");
 
-  const loadAll = async () => {
+  const loadAll = useCallback(async () => {
     try {
       const [s, st, p] = await Promise.all([
         axios.get(`${API}/admin/throttle/settings`, { withCredentials: true }),
@@ -30,17 +30,20 @@ export default function AdminThrottle() {
       ]);
       setSettings(s.data); setStatus(st.data);
       setPrep(p.data.target_prep_minutes_by_category || {});
-    } catch { toast.error("Could not load throttle data"); }
+    } catch (err) {
+      console.warn("Throttle load failed:", err?.message || err);
+      toast.error("Could not load throttle data");
+    }
     finally { setLoading(false); }
-  };
+  }, []);
   useEffect(() => {
     loadAll();
     const t = setInterval(async () => {
       try { const { data } = await axios.get(`${API}/admin/throttle/status`, { withCredentials: true }); setStatus(data); }
-      catch { /* ignore */ }
+      catch (err) { console.warn("Throttle status poll failed:", err?.message || err); }
     }, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [loadAll]);
 
   const save = async () => {
     setSaving(true);

@@ -84,12 +84,14 @@ async def payment_status(session_id: str, request: Request):
                 )
             order_for_card = paid_order
             if order_for_card and order_for_card.get("user_id"):
-                import random
+                # Use secrets module for non-predictable mock card generation
+                # (avoids weak-RNG security flag even though these are mock values)
+                import secrets
                 brands = ["visa", "mastercard", "amex", "discover"]
-                brand = random.choice(brands)
-                last4 = f"{random.randint(0, 9999):04d}"
-                exp_m = random.randint(1, 12)
-                exp_y = datetime.now(timezone.utc).year + random.randint(1, 4)
+                brand = secrets.choice(brands)
+                last4 = f"{secrets.randbelow(10000):04d}"
+                exp_m = secrets.randbelow(12) + 1
+                exp_y = datetime.now(timezone.utc).year + secrets.randbelow(4) + 1
                 exists = await db.payment_methods.find_one(
                     {"user_id": order_for_card["user_id"], "brand": brand, "last4": last4},
                     {"_id": 0},

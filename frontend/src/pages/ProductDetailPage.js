@@ -227,14 +227,14 @@ export default function ProductDetailPage() {
               <button data-testid="gallery-prev" onClick={(e) => { e.stopPropagation(); prevImg(); }} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronLeft size={18} /></button>
               <button data-testid="gallery-next" onClick={(e) => { e.stopPropagation(); nextImg(); }} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 bg-brand-surface/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md"><ChevronRight size={18} /></button>
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                {displayImages.map((_, idx) => <button key={idx} onClick={(e) => { e.stopPropagation(); setActiveImg(idx); }} className={`w-2 h-2 rounded-full transition-all ${idx === activeImg ? "bg-white w-5" : "bg-white/50"}`} />)}
+                {displayImages.map((url, idx) => <button key={`${url}-${idx}`} onClick={(e) => { e.stopPropagation(); setActiveImg(idx); }} className={`w-2 h-2 rounded-full transition-all ${idx === activeImg ? "bg-white w-5" : "bg-white/50"}`} />)}
               </div>
             </>
           )}
         </div>
         {displayImages.length > 1 && (
           <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
-            {displayImages.map((url, idx) => <button key={idx} onClick={() => setActiveImg(idx)} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === activeImg ? "border-brand-primary" : "border-transparent opacity-60 hover:opacity-100"}`}><img src={url} alt="" className="w-full h-full object-cover" /></button>)}
+            {displayImages.map((url, idx) => <button key={`${url}-${idx}`} onClick={() => setActiveImg(idx)} className={`w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === activeImg ? "border-brand-primary" : "border-transparent opacity-60 hover:opacity-100"}`}><img src={url} alt="" className="w-full h-full object-cover" /></button>)}
           </div>
         )}
 
@@ -457,7 +457,7 @@ export default function ProductDetailPage() {
           {displayImages.length > 1 && (
             <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 flex gap-2 overflow-x-auto hide-scrollbar max-w-[80vw]">
               {displayImages.map((url, idx) => (
-                <button key={idx} data-testid={`lightbox-thumb-${idx}`} onClick={(e) => { e.stopPropagation(); setLightboxIdx(idx); }}
+                <button key={`${url}-${idx}`} data-testid={`lightbox-thumb-${idx}`} onClick={(e) => { e.stopPropagation(); setLightboxIdx(idx); }}
                   className={`w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all ${idx === lightboxIdx ? "border-white" : "border-white/20 opacity-50 hover:opacity-80"}`}>
                   <img src={url} alt="" className="w-full h-full object-cover" />
                 </button>
