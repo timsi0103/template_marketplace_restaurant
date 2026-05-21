@@ -251,7 +251,7 @@ export default function CartDrawer() {
 
         {/* Footer */}
         {items.length > 0 && (
-          <SheetFooter className="px-5 pb-5 pt-4 border-t border-brand-border flex-col sm:flex-col sm:space-x-0 gap-3">
+          <SheetFooter className="px-5 pb-20 sm:pb-16 pt-4 border-t border-brand-border flex-col sm:flex-col sm:space-x-0 gap-3">
             {/* Promo */}
             <div className="w-full">
               {promo ? (
