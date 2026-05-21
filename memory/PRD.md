@@ -357,9 +357,21 @@
 ## Test Credentials
 - Admin: admin@culinaryeditorial.com / Admin123!
 
+## Phase 38 — Admin Portal Bug Sweep (May 21, 2026)
+- [x] Hero image fallback: `<img onError>` swap to unsplash bakery URL when stored storefront image returns 404
+- [x] AdminItemForm: split category load + auto-select into two useEffects (category now reliably auto-selects first slug; resolves "Photo URL upload failing" caused by "Pick a category" validation block)
+- [x] Paused orders bypass: `POST /api/orders` now returns 503 "Ordering paused: <reason>" when `store_settings.pause_ordering == true`
+- [x] Admin Hours alignment: time inputs widened from `w-24` → `w-[112px] px-2 tabular-nums` (weekly grid + special hours) so native time picker no longer clips
+- [x] Dashboard Live Service Queue: Filter button → `<Link to="/admin/queue?filter=open">`; 3-dot/check buttons → `<Link to="/admin/queue">`
+- [x] Live Queue refresh: added `refreshing` state, spinning RefreshCw icon, "Queue refreshed" toast
+- [x] Orders refresh: added `refreshing` state, spinning RefreshCw icon, "Orders refreshed" toast
+- [x] Cancellation `require_reason` now honored on customer dialog: dialog opens directly at confirm step when admin disables require_reason; resets correctly when re-enabled
+- Tests: `/app/backend/tests/test_iteration38_bug_fixes.py` (7/7 pass) + Playwright E2E iteration 38 (8/8 pass)
+
 ## Backlog
 ### P1: Subscriptions (meal plan, weekly/monthly recurrence, billing hooks)
 ### P1: Loyalty program (points, tiers, redeemable rewards) — user previously deferred; revisit
 ### P1: Performance & CDN admin screens — user requested skip in Phase 33 E2E session; revisit on demand
 ### P2: Real webhook signing (Stripe), multi-location support, SMS notifications
+### P2: Re-fetch `/api/cancellation/config` periodically on customer pages so live admin policy toggles propagate without manual refresh
 ### P3 (test hygiene): `test_menu_catalog` + `test_store_hours` + `test_checkout_orders` — refactor to use self-managed fixtures instead of shared seed state
