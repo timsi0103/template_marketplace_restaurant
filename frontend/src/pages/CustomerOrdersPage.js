@@ -431,7 +431,7 @@ function ReorderDialog({ dialog, onCancel, onConfirm }) {
             </div>
             <ul className="space-y-1">
               {warnings.map((w, i) => (
-                <li key={i} data-testid={`reorder-warning-${i}`} className="font-body text-xs text-amber-800 flex justify-between gap-2">
+                <li key={`${w.item_id || w.name || ""}-${w.reason || ""}-${i}`} data-testid={`reorder-warning-${i}`} className="font-body text-xs text-amber-800 flex justify-between gap-2">
                   <span>{w.name}</span>
                   <span className="font-semibold">{w.reason}</span>
                 </li>
@@ -444,7 +444,7 @@ function ReorderDialog({ dialog, onCancel, onConfirm }) {
           <div data-testid="reorder-items" className="mb-5 max-h-60 overflow-y-auto space-y-2">
             <div className="font-body text-[10px] uppercase tracking-widest text-brand-text-secondary mb-2">We'll add these to your cart:</div>
             {availableItems.map((i, idx) => (
-              <div key={idx} className="flex items-center gap-3 p-2 rounded-lg bg-brand-bg border border-brand-border">
+              <div key={i.item_id ? `${i.item_id}-${i.variant?.id || ""}-${idx}` : `reorder-${idx}`} className="flex items-center gap-3 p-2 rounded-lg bg-brand-bg border border-brand-border">
                 {i.image && <img src={i.image} alt={i.name} className="w-10 h-10 rounded-lg object-cover" />}
                 <div className="flex-1 min-w-0">
                   <div className="font-body text-sm font-semibold text-brand-text truncate">{i.name} <span className="text-brand-text-secondary">× {i.qty}</span></div>

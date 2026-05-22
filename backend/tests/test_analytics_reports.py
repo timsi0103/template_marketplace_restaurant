@@ -19,10 +19,8 @@ def _load_base_url():
 
 
 BASE_URL = _load_base_url()
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
 @pytest.fixture(scope="module")
 def admin_session():
     s = requests.Session()

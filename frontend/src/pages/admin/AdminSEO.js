@@ -689,7 +689,7 @@ function SitemapRobotsTab({ sitemapPreview, refreshSitemap, robotsPreview, refre
           <div className="overflow-x-auto -mx-6 px-6"><table className="w-full text-[12px] font-mono min-w-[640px]">
             <tbody>
               {(sitemapPreview?.entries || []).map((e, i) => (
-                <tr key={i} data-testid={`sitemap-row-${i}`} className="border-b border-brand-border last:border-0">
+                <tr key={e.loc || `sitemap-${i}`} data-testid={`sitemap-row-${i}`} className="border-b border-brand-border last:border-0">
                   <td className="px-3 py-2 truncate max-w-[320px]"><a href={e.loc} target="_blank" rel="noreferrer" className="text-brand-primary hover:underline">{e.loc.replace(siteUrl || "", "")}</a></td>
                   <td className="px-3 py-2 text-brand-text-secondary">{e.priority}</td>
                   <td className="px-3 py-2 text-brand-text-secondary">{e.changefreq}</td>

@@ -24,12 +24,10 @@ def _read_frontend_env():
 
 
 BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or _read_frontend_env()).rstrip("/")
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-CUSTOMER_EMAIL = "demo@culinaryeditorial.com"
-CUSTOMER_PASSWORD = "Demo123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
+CUSTOMER_EMAIL = os.environ.get("TEST_DEMO_EMAIL", "demo@culinaryeditorial.com")
+CUSTOMER_PASSWORD = os.environ.get("TEST_DEMO_PASSWORD", "Demo123!")
 @pytest.fixture(scope="module")
 def admin_session():
     s = requests.Session()

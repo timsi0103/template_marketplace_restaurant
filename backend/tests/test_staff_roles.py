@@ -26,7 +26,7 @@ def admin_session():
     s = requests.Session()
     r = s.post(
         f"{BASE_URL}/api/auth/login",
-        json={"email": "admin@culinaryeditorial.com", "password": "Admin123!"},
+        json={"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"), "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")},
     )
     if r.status_code != 200:
         pytest.skip(f"Admin login failed {r.status_code}: {r.text[:200]}")

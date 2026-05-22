@@ -130,7 +130,7 @@ class TestAdminModifierEndpoints:
         self.session = requests.Session()
         login_resp = self.session.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@culinaryeditorial.com", "password": "Admin123!"},
+            json={"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"), "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")},
             allow_redirects=True
         )
         assert login_resp.status_code == 200, f"Admin login failed: {login_resp.text}"

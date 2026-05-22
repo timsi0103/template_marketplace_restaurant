@@ -518,7 +518,7 @@ function AddressStep({ address, setAddress, savedAddresses, isLoggedIn }) {
           <div className="flex flex-wrap gap-2">
             {savedAddresses.map((a, idx) => (
               <button
-                key={idx}
+                key={a.id || `${a.line1 || ""}-${a.zip || ""}-${idx}`}
                 data-testid={`saved-address-${idx}`}
                 onClick={() => setAddress(a)}
                 className="px-3 py-2 rounded-lg border border-brand-border bg-brand-bg text-left hover:border-brand-primary/40 transition"

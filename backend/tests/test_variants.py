@@ -23,8 +23,8 @@ class TestVariantsBackend:
     def get_admin_cookies(self):
         """Login as admin and return cookies"""
         response = self.session.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "admin@culinaryeditorial.com",
-            "password": "Admin123!"
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"),
+            "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
         })
         assert response.status_code == 200, f"Admin login failed: {response.text}"
         return response.cookies

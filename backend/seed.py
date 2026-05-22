@@ -55,8 +55,8 @@ async def run_startup_seed():
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_password)}})
 
     # Demo customer seed — powers the one-tap demo login on /login
-    demo_email = "demo@culinaryeditorial.com"
-    demo_password = "Demo123!"
+    demo_email = os.environ.get("DEMO_EMAIL", "demo@culinaryeditorial.com")
+    demo_password = os.environ.get("DEMO_PASSWORD", "Demo123!")
     demo_existing = await db.users.find_one({"email": demo_email}, {"_id": 0})
     if demo_existing is None:
         await db.users.insert_one({

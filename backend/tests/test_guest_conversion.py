@@ -45,7 +45,7 @@ def cleanup(db, test_email_suffix):
 
 class TestCheckEmail:
     def test_check_existing_admin_email(self, api):
-        r = api.post(f"{BASE_URL}/api/auth/check-email", json={"email": "admin@culinaryeditorial.com"})
+        r = api.post(f"{BASE_URL}/api/auth/check-email", json={"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")})
         assert r.status_code == 200, r.text
         data = r.json()
         assert data["exists"] is True

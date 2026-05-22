@@ -5,10 +5,8 @@ import os
 from datetime import datetime, timezone
 
 BASE_URL = (os.environ.get('REACT_APP_BACKEND_URL') or 'https://job-builder-6.preview.emergentagent.com').rstrip('/')
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
 @pytest.fixture(scope="module")
 def admin_session():
     s = requests.Session()

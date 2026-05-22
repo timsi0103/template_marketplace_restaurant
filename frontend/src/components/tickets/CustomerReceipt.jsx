@@ -64,7 +64,7 @@ const CustomerReceipt = forwardRef(function CustomerReceipt({ ticket }, ref) {
           const qty = it.quantity || 1;
           const price = Number(it.line_total ?? (it.price || 0) * qty);
           return (
-            <div key={idx}>
+            <div key={`${it.item_id || it.name || "item"}-${it.variant?.id || ""}-${idx}`}>
               <div className="item">
                 <span className="qty">{qty}×</span>
                 <span className="name">{it.name || it.item_name || "Item"}</span>
@@ -72,7 +72,7 @@ const CustomerReceipt = forwardRef(function CustomerReceipt({ ticket }, ref) {
               </div>
               {(it.variant_name || it.variant?.name) && (<div className="mod">› {it.variant_name || it.variant?.name}</div>)}
               {Array.isArray(it.modifiers) && it.modifiers.map((m, mi) => (
-                <div key={mi} className="mod">+ {m.name || m}</div>
+                <div key={`${m.name || m || "mod"}-${mi}`} className="mod">+ {m.name || m}</div>
               ))}
               {it.special_instructions && <div className="mod">note: {it.special_instructions}</div>}
             </div>

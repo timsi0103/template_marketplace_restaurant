@@ -28,10 +28,8 @@ def _load_base_url():
 
 
 BASE_URL = _load_base_url()
-DEMO_EMAIL = "demo@culinaryeditorial.com"
-DEMO_PASSWORD = "Demo123!"
-
-
+DEMO_EMAIL = os.environ.get("TEST_DEMO_EMAIL", "demo@culinaryeditorial.com")
+DEMO_PASSWORD = os.environ.get("TEST_DEMO_PASSWORD", "Demo123!")
 @pytest.fixture(scope="module")
 def session():
     s = requests.Session()

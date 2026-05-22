@@ -107,8 +107,8 @@ class TestUserLogin:
     def test_login_admin_success(self, api_client):
         """Login with admin credentials should succeed"""
         response = api_client.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "admin@culinaryeditorial.com",
-            "password": "Admin123!"
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"),
+            "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
         })
         assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
@@ -121,7 +121,7 @@ class TestUserLogin:
     def test_login_wrong_password_fails(self, api_client):
         """Login with wrong password should return 401"""
         response = api_client.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "admin@culinaryeditorial.com",
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"),
             "password": "wrongpassword"
         })
         assert response.status_code == 401, f"Expected 401, got {response.status_code}"
@@ -146,8 +146,8 @@ class TestAuthMe:
         """GET /me with valid session should return user data"""
         # First login
         login_resp = api_client.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "admin@culinaryeditorial.com",
-            "password": "Admin123!"
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"),
+            "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
         })
         assert login_resp.status_code == 200
         
@@ -176,8 +176,8 @@ class TestLogout:
         """Logout should clear cookies and session"""
         # First login
         api_client.post(f"{BASE_URL}/api/auth/login", json={
-            "email": "admin@culinaryeditorial.com",
-            "password": "Admin123!"
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"),
+            "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
         })
         
         # Logout
@@ -194,7 +194,7 @@ class TestForgotPassword:
     def test_forgot_password_returns_success(self, api_client):
         """Forgot password should always return success (to prevent email enumeration)"""
         response = api_client.post(f"{BASE_URL}/api/auth/forgot-password", json={
-            "email": "admin@culinaryeditorial.com"
+            "email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
         })
         assert response.status_code == 200, f"Expected 200, got {response.status_code}"
         data = response.json()

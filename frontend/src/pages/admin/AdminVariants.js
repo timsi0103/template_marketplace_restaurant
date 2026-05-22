@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Plus, Pencil, Trash2, Package, ChevronDown, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -14,12 +14,14 @@ export default function AdminVariants() {
   const [varForm, setVarForm] = useState({ name: "", price: "", stock: "-1", image: "" });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const loadItems = useCallback(() => {
     axios.get(`${API_BASE}/menu/items`, { withCredentials: true })
       .then(({ data }) => setItems(data.items || []))
-      .catch(() => {})
+      .catch((err) => { console.warn("Load variants failed:", err?.message || err); })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadItems(); }, [loadItems]);
 
   const itemsWithVariants = items.filter(i => i.variants?.length > 0);
   const itemsWithoutVariants = items.filter(i => !i.variants?.length);

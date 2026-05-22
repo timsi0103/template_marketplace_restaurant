@@ -33,10 +33,8 @@ BASE_URL = (os.environ.get("REACT_APP_BACKEND_URL") or "").rstrip("/")
 MONGO_URL = os.environ.get("MONGO_URL")
 DB_NAME = os.environ.get("DB_NAME")
 
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
 @pytest.fixture(scope="module")
 def admin_session():
     s = requests.Session()

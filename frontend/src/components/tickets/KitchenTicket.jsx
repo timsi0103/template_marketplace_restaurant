@@ -76,7 +76,7 @@ const KitchenTicket = forwardRef(function KitchenTicket({ ticket }, ref) {
         <hr className="hr-solid" />
         <div className="bold">ITEMS ({items.length})</div>
         {items.map((it, idx) => (
-          <div key={idx} className="item" data-testid={`ticket-item-${idx}`}>
+          <div key={`${it.item_id || it.name || "item"}-${it.variant?.id || ""}-${idx}`} className="item" data-testid={`ticket-item-${idx}`}>
             <div className="item-name">
               <span className="item-qty">{it.quantity || 1}×</span>{" "}
               {it.name || it.item_name || "Item"}
@@ -85,7 +85,7 @@ const KitchenTicket = forwardRef(function KitchenTicket({ ticket }, ref) {
               <div className="mod">› {it.variant_name || it.variant?.name}</div>
             )}
             {Array.isArray(it.modifiers) && it.modifiers.length > 0 && it.modifiers.map((m, mi) => (
-              <div key={mi} className="mod">+ {m.name || m}</div>
+              <div key={`${m.name || m || "mod"}-${mi}`} className="mod">+ {m.name || m}</div>
             ))}
             {it.special_instructions && (
               <div className="notes">** {it.special_instructions.toUpperCase()} **</div>

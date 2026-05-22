@@ -12,10 +12,8 @@ import uuid
 from datetime import datetime, timezone
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
 class TestFavoriteToggleAuth:
     """Test PATCH /api/orders/{id}/favorite requires login"""
     

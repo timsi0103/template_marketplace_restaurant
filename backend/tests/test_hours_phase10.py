@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
-ADMIN = {"email": "admin@culinaryeditorial.com", "password": "Admin123!"}
+ADMIN = {"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"), "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")}
 
 
 @pytest.fixture(scope="module")

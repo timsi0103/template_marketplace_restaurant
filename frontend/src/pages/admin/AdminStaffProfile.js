@@ -95,7 +95,7 @@ export default function AdminStaffProfile() {
         ) : (
           <ul data-testid="staff-activity-list">
             {activity.map((e, i) => (
-              <li key={i} data-testid={`staff-activity-row-${i}`} className="px-5 py-3 border-b border-brand-border last:border-0 flex items-start gap-3">
+              <li key={`${e.action || "act"}-${e.created_at || e.at || ""}-${i}`} data-testid={`staff-activity-row-${i}`} className="px-5 py-3 border-b border-brand-border last:border-0 flex items-start gap-3">
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-primary mt-2.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-body text-sm text-brand-text">

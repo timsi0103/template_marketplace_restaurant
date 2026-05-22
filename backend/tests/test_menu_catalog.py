@@ -11,10 +11,8 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', os.environ.get('FRONTEND_URL'
 if 'localhost' not in BASE_URL and '127.0.0.1' not in BASE_URL:
     BASE_URL = 'http://localhost:8001'
 
-ADMIN_EMAIL = "admin@culinaryeditorial.com"
-ADMIN_PASSWORD = "Admin123!"
-
-
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com")
+ADMIN_PASSWORD = os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")
 class TestMenuItemsPublic:
     """Public menu items API tests (no auth required)"""
     

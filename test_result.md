@@ -105,6 +105,21 @@
 user_problem_statement: "Apply code-review fixes: command-injection in test_kds.py, insecure random in payments.py, hardcoded demo creds in LoginPage, missing hook deps + array-index keys + empty catches across admin pages."
 
 backend:
+  - task: "Round 2: Move hardcoded creds to env vars + finish hook deps + more index-as-key"
+    implemented: true
+    working: true
+    file: "backend/seed.py, backend/tests/*.py (30 files), src/pages/admin/{AdminVariants,AdminStaffProfile,AdminSEO}.js, src/pages/{CheckoutPage,CustomerOrdersPage}.js, src/components/tickets/{KitchenTicket,CustomerReceipt}.jsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Round 2 of code-review fixes. Backend: (a) seed.py demo creds now read from DEMO_EMAIL/DEMO_PASSWORD env vars with seeded defaults as fallback; (b) 30 test files updated via /tmp/fix_test_creds.py — both module-level constants (ADMIN_EMAIL/ADMIN_PASSWORD/DEMO_EMAIL/DEMO_PASSWORD/CUSTOMER_EMAIL/CUSTOMER_PASSWORD) and inline dict literals (\"email\":/\"password\":) now use os.environ.get(TEST_*_EMAIL/PASSWORD, <default>). Helper auto-inserts `import os` where missing. Backend lints clean (only pre-existing warnings remain); admin and demo logins both return 200 via curl after restart. Frontend: (a) AdminVariants useEffect fetcher wrapped in useCallback with proper deps + console.warn for error logging; (b) array-index keys replaced with stable composite keys in 7 files (AdminStaffProfile activity rows, AdminSEO sitemap rows, CheckoutPage saved-addresses, CustomerOrdersPage warnings + reorder items, KitchenTicket items + modifiers, CustomerReceipt items + modifiers). ESLint clean on all touched files."
+        - working: true
+          agent: "testing"
+          comment: "Smoke test validation complete (5/5 passed). Verified env-var refactor did not break any functionality: (1) Admin auth - POST /api/auth/login with admin@culinaryeditorial.com/Admin123! returns 200 with valid session cookie, GET /api/auth/me returns 200. (2) Demo auth - POST /api/auth/login with demo@culinaryeditorial.com/Demo123! returns 200 with valid session cookie, GET /api/auth/me returns 200. (3) Storefront - GET /api/storefront/settings returns 200. (4) KDS Board - GET /api/admin/kds/board with admin auth returns 200. (5) Analytics - GET /api/admin/analytics/summary?days=7 with admin auth returns 200. No 5xx errors, no auth failures. The env-var credential refactor is working correctly across all tested endpoints."
+
   - task: "Replace shell=True subprocess + insecure random"
     implemented: true
     working: true
@@ -136,12 +151,11 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 2
+  test_sequence: 3
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Replace shell=True subprocess + insecure random"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -151,3 +165,5 @@ agent_communication:
       message: "Code-review fixes applied. Critical security items (shell=True in test_kds.py, insecure random in payments.py) and high-value bug-prone items (hook deps, empty catches, array-index keys) are done. Skipped function/component complexity refactors and cart-localStorage 'fix' — explained in plan to the user. Please smoke-test: POST /api/auth/login (admin + customer), the payments mock-card path that generates last4/exp on order completion (via guest or authed checkout), and KDS board GET. test_credentials.md is populated."
     - agent: "testing"
       message: "Smoke testing complete. All critical backend paths validated successfully. The secrets module fix in payments.py is working correctly - no errors in mock saved-card generation. Auth endpoints (admin + demo customer) working. KDS board, storefront, menu, and reviews endpoints all returning 200. Payment flow (order creation → status polling) completes without errors. No regressions detected. Ready for main agent to summarize and finish."
+    - agent: "testing"
+      message: "Quick smoke test validation complete (5/5 passed). Confirmed yesterday's env-var refactor did not introduce any regressions. Both admin and demo credentials work correctly, all tested endpoints (auth, storefront, KDS board, analytics) return 200. No 5xx errors or auth failures detected. Backend is stable and ready for production."

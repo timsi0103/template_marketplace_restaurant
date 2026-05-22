@@ -96,7 +96,7 @@ class TestAdminHoursAuthenticated:
         self.session = requests.Session()
         login_response = self.session.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@culinaryeditorial.com", "password": "Admin123!"}
+            json={"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"), "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")}
         )
         if login_response.status_code != 200:
             pytest.skip("Admin login failed - skipping authenticated tests")
@@ -206,7 +206,7 @@ class TestAdminHolidays:
         self.session = requests.Session()
         login_response = self.session.post(
             f"{BASE_URL}/api/auth/login",
-            json={"email": "admin@culinaryeditorial.com", "password": "Admin123!"}
+            json={"email": os.environ.get("TEST_ADMIN_EMAIL", "admin@culinaryeditorial.com"), "password": os.environ.get("TEST_ADMIN_PASSWORD", "Admin123!")}
         )
         if login_response.status_code != 200:
             pytest.skip("Admin login failed - skipping authenticated tests")
