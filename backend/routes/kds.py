@@ -60,22 +60,53 @@ async def kds_update_settings(body: KDSSettingsBody, request: Request):
 
 
 @api_router.get("/admin/kds/board")
-async def kds_board(request: Request, station: Optional[str] = None):
+async def kds_board(
+    request: Request,
+    station: Optional[str] = None,
+    limit: int = 50,
+    skip: int = 0,
+):
     await require_admin(request)
+    # Bound pagination: limit is capped at 50, skip is non-negative.
+    try:
+        limit = max(1, min(50, int(limit)))
+    except (TypeError, ValueError):
+        limit = 50
+    try:
+        skip = max(0, int(skip))
+    except (TypeError, ValueError):
+        skip = 0
+
     settings_doc = await db.kds_settings.find_one({"key": "kds_settings"}, {"_id": 0}) or DEFAULT_KDS_SETTINGS
     query = {"payment_status": "paid", "status": {"$in": ["preparing", "ready"]}}
-    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", 1).to_list(100)
+    orders = (
+        await db.orders.find(query, {"_id": 0})
+        .sort("created_at", 1).skip(skip).limit(limit).to_list(limit)
+    )
 
     if station:
         station_cats = set(settings_doc.get("station_routing", {}).get(station.lower(), []))
+
+        # Batch-fetch any missing categories in a single query (avoid N+1 lookups).
+        missing_ids = {
+            it.get("item_id") for o in orders for it in (o.get("items") or [])
+            if not (it.get("category") or "").strip() and it.get("item_id")
+        }
+        category_by_id = {}
+        if missing_ids:
+            cursor = db.menu_items.find(
+                {"id": {"$in": list(missing_ids)}}, {"_id": 0, "id": 1, "category": 1}
+            )
+            async for mi in cursor:
+                category_by_id[mi["id"]] = (mi.get("category") or "").lower()
+
         filtered = []
         for o in orders:
             matching = []
             for idx, it in enumerate(o.get("items", [])):
                 cat = (it.get("category") or "").lower()
                 if not cat:
-                    mi = await db.menu_items.find_one({"id": it.get("item_id")}, {"_id": 0, "category": 1})
-                    cat = (mi or {}).get("category", "").lower()
+                    cat = category_by_id.get(it.get("item_id"), "")
                 if cat in station_cats:
                     it_copy = dict(it)
                     it_copy["_line_index"] = idx
@@ -87,6 +118,7 @@ async def kds_board(request: Request, station: Optional[str] = None):
 
     return {
         "orders": orders, "count": len(orders),
+        "limit": limit, "skip": skip,
         "settings": settings_doc,
         "server_time": datetime.now(timezone.utc).isoformat(),
     }

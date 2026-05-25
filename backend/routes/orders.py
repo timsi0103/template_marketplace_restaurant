@@ -67,7 +67,8 @@ async def _is_first_order(contact_email: Optional[str], user_id: Optional[str]) 
 
 
 async def _compute_order_totals(items_enriched, fulfillment_type, promo_code, tip,
-                                contact_email=None, user_id=None):
+                                contact_email=None, user_id=None,
+                                products_by_id=None):  # products_by_id reserved for future per-product promo rules
     subtotal = round(sum(i["price"] * i["qty"] for i in items_enriched), 2)
     delivery_fee = round(DELIVERY_FEE, 2) if fulfillment_type == "delivery" else 0.0
     discount = 0.0
@@ -101,9 +102,14 @@ async def _compute_order_totals(items_enriched, fulfillment_type, promo_code, ti
 
 
 async def _enrich_items(items_in: List[OrderLineIn]):
+    # Batch fetch all referenced menu_items in a single query to avoid N+1.
+    ids = list({line.item_id for line in items_in})
+    cursor = db.menu_items.find({"id": {"$in": ids}}, {"_id": 0})
+    products_by_id = {p["id"]: p async for p in cursor}
+
     enriched = []
     for line in items_in:
-        prod = await db.menu_items.find_one({"id": line.item_id}, {"_id": 0})
+        prod = products_by_id.get(line.item_id)
         if not prod:
             raise HTTPException(status_code=400, detail=f"Item {line.item_id} not found")
         base_price = prod["price"]
@@ -120,6 +126,7 @@ async def _enrich_items(items_in: List[OrderLineIn]):
             "item_id": line.item_id,
             "name": prod["name"],
             "image": prod.get("image") or "",
+            "category": prod.get("category") or "",
             "variant_id": line.variant_id,
             "variant_name": variant_name,
             "modifiers": line.modifiers or [],
@@ -129,7 +136,7 @@ async def _enrich_items(items_in: List[OrderLineIn]):
             "unit_modifiers_total": float(mod_total),
             "price": round(float(base_price) + float(mod_total), 2),
         })
-    return enriched
+    return enriched, products_by_id
 
 
 def _make_order_number():
@@ -226,7 +233,16 @@ async def create_order(body: OrderCreate, request: Request):
         reason = (store_settings.get("pause_reason") or "").strip() or "We are temporarily not accepting orders."
         raise HTTPException(status_code=503, detail=f"Ordering paused: {reason}")
 
-    items_enriched = await _enrich_items(body.items)
+    # Idempotency: if a key was provided and we've already processed it, return the same result.
+    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+    if idempotency_key:
+        existing = await db.idempotency_keys.find_one(
+            {"key": idempotency_key, "scope": "create_order"}, {"_id": 0}
+        )
+        if existing and existing.get("response"):
+            return existing["response"]
+
+    items_enriched, products_by_id = await _enrich_items(body.items)
 
     user_id = None
     try:
@@ -239,21 +255,24 @@ async def create_order(body: OrderCreate, request: Request):
     totals = await _compute_order_totals(
         items_enriched, body.fulfillment_type, body.promo_code, body.tip,
         contact_email=body.contact_email, user_id=user_id,
+        products_by_id=products_by_id,
     )
 
     order_id = str(uuid.uuid4())
     order_number = _make_order_number()
+    # Per-order lookup token enabling guest tracking without leaking other orders.
+    lookup_token = secrets.token_urlsafe(24)
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    # Compute a smart estimated_minutes from current kitchen load + item prep times
+    # Compute a smart estimated_minutes from current kitchen load + item prep times.
+    # Categories are read from the already-fetched products map (no extra queries).
     try:
         from routes.throttle import _compute_eta_payload
-        cats = list({(it.get("name") and it.get("name")) for it in items_enriched})  # dummy placeholder
-        cats = []
-        for it in items_enriched:
-            prod = await db.menu_items.find_one({"id": it["item_id"]}, {"_id": 0, "category": 1})
-            if prod and prod.get("category"):
-                cats.append(prod["category"])
+        cats = [
+            (products_by_id.get(it["item_id"]) or {}).get("category")
+            for it in items_enriched
+        ]
+        cats = [c for c in cats if c]
         eta_payload = await _compute_eta_payload(cats)
         estimated = int(eta_payload.get("eta_minutes") or 0)
         if body.fulfillment_type == "delivery":
@@ -277,6 +296,7 @@ async def create_order(body: OrderCreate, request: Request):
         "status": "pending",
         "payment_status": "initiated",
         "estimated_minutes": estimated,
+        "lookup_token": lookup_token,
         "created_at": now_iso, "updated_at": now_iso,
     }
 
@@ -306,61 +326,128 @@ async def create_order(body: OrderCreate, request: Request):
 
     order_doc["stripe_session_id"] = session.session_id
 
-    await db.orders.insert_one(order_doc)
+    # Two-phase write to keep order + payment_transaction consistent without a
+    # real DB transaction: insert payment_transaction as `pending` first, then
+    # the order, then flip the transaction to `recorded`. If any step fails the
+    # pending row is reconcilable.
+    payment_txn_id = str(uuid.uuid4())
     await db.payment_transactions.insert_one({
-        "id": str(uuid.uuid4()),
+        "id": payment_txn_id,
         "session_id": session.session_id,
         "order_id": order_id, "order_number": order_number,
         "amount": float(totals["total"]), "currency": "usd",
         "user_id": user_id, "contact_email": body.contact_email,
-        "status": "initiated", "payment_status": "initiated",
+        "status": "pending", "payment_status": "initiated",
         "metadata": {"order_id": order_id, "order_number": order_number, "fulfillment_type": body.fulfillment_type},
         "created_at": now_iso, "updated_at": now_iso,
     })
+    try:
+        await db.orders.insert_one(order_doc)
+    except Exception:
+        # Mark the orphan payment_transaction for reconciliation and re-raise.
+        await db.payment_transactions.update_one(
+            {"id": payment_txn_id},
+            {"$set": {"status": "orphaned", "updated_at": datetime.now(timezone.utc).isoformat()}},
+        )
+        raise
+    await db.payment_transactions.find_one_and_update(
+        {"id": payment_txn_id},
+        {"$set": {"status": "recorded", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
 
-    return {
+    result = {
         "order_id": order_id, "order_number": order_number,
         "session_id": session.session_id, "checkout_url": session.url,
         "total": totals["total"],
+        "lookup_token": lookup_token,
     }
+
+    if idempotency_key:
+        # Best-effort upsert; ignore races (the first writer wins).
+        try:
+            await db.idempotency_keys.update_one(
+                {"key": idempotency_key, "scope": "create_order"},
+                {"$setOnInsert": {
+                    "key": idempotency_key, "scope": "create_order",
+                    "response": result, "order_id": order_id,
+                    "created_at": now_iso,
+                }},
+                upsert=True,
+            )
+        except Exception:
+            pass
+
+    return result
 
 
 @api_router.get("/orders")
 async def list_orders(request: Request, email: Optional[str] = None):
-    """Return orders for the caller.
+    """Return orders for the authenticated caller.
 
-    For logged-in customers we match on `user_id` OR `contact_email` so that
-    orders placed before account creation (or by guest) still surface.
+    Customers see only their own orders (matched by `user_id` OR their own
+    `contact_email`). Admins/staff may filter by `email` to look up a customer.
+    The previous unauthenticated `?email=` filter was an IDOR vector and has
+    been removed.
     """
+    user = await get_current_user(request)
+    if not user or user.get("guest"):
+        raise HTTPException(status_code=401, detail="Sign in to view your orders")
+
+    role = user.get("role", "customer")
+
+    if role == "admin":
+        query = {"contact_email": email} if email else {}
+        orders = await db.orders.find(query, {"_id": 0, "lookup_token": 0}).sort("created_at", -1).to_list(100)
+        return {"orders": orders, "count": len(orders)}
+
+    # Non-admin: ignore the `email` query param entirely.
     or_clauses = []
-    try:
-        user = await get_current_user(request)
-        if user and not user.get("guest"):
-            uid = user.get("user_id") or user.get("id")
-            if uid:
-                or_clauses.append({"user_id": uid})
-            if user.get("email"):
-                or_clauses.append({"contact_email": user["email"]})
-    except Exception:
-        pass
-
-    if email:
-        or_clauses.append({"contact_email": email})
-
+    uid = user.get("user_id") or user.get("id")
+    if uid:
+        or_clauses.append({"user_id": uid})
+    if user.get("email"):
+        or_clauses.append({"contact_email": user["email"]})
     if not or_clauses:
         return {"orders": [], "count": 0}
-
     query = or_clauses[0] if len(or_clauses) == 1 else {"$or": or_clauses}
-    orders = await db.orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    orders = await db.orders.find(query, {"_id": 0, "lookup_token": 0}).sort("created_at", -1).to_list(100)
     return {"orders": orders, "count": len(orders)}
 
 
 @api_router.get("/orders/{order_id}")
-async def get_order(order_id: str):
+async def get_order(order_id: str, request: Request, token: Optional[str] = None):
+    """Fetch a single order.
+
+    Authorization rules:
+      - The order's owner (matched by `user_id` or `contact_email`) may read it.
+      - An admin/staff user may read any order.
+      - A guest can present the per-order `lookup_token` returned by POST /orders
+        as `?token=<lookup_token>` (constant-time compared).
+    """
     order = await db.orders.find_one({"id": order_id}, {"_id": 0})
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return order
+
+    # Guest lookup token path — accepted regardless of auth state.
+    expected_token = order.get("lookup_token")
+    if token and expected_token and secrets.compare_digest(str(token), str(expected_token)):
+        return {k: v for k, v in order.items() if k != "lookup_token"}
+
+    try:
+        user = await get_current_user(request)
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    if user.get("role") == "admin":
+        return {k: v for k, v in order.items() if k != "lookup_token"}
+
+    uid = user.get("user_id") or user.get("id")
+    owner_email = (user.get("email") or "").lower()
+    order_email = (order.get("contact_email") or "").lower()
+    if (uid and order.get("user_id") == uid) or (owner_email and owner_email == order_email):
+        return {k: v for k, v in order.items() if k != "lookup_token"}
+
+    raise HTTPException(status_code=403, detail="Not your order")
 
 
 @api_router.patch("/orders/{order_id}/favorite")

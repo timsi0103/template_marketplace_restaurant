@@ -248,9 +248,17 @@ export default function CheckoutPage() {
         contact_phone: contact.phone || "",
         origin_url: window.location.origin,
       };
+      // Idempotency: same key for the duration of a single submit attempt so a
+      // double-click / retry collapses into one server-side order.
+      const idempotencyKey =
+        (window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) ||
+        `co-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -264,6 +272,7 @@ export default function CheckoutPage() {
           order_number: data.order_number,
           contact_email: contact.email,
           fulfillment_type: fulfillment,
+          lookup_token: data.lookup_token || null,
         }));
       } catch { /* ignore */ }
       clearCart();

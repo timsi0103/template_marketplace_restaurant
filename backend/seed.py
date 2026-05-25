@@ -43,9 +43,14 @@ async def run_startup_seed():
     await db.store_holidays.create_index("id")
     await db.store_holidays.create_index("date")
 
-    # Admin seed
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
-    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
+    # Admin seed — fail-fast if creds aren't provided so production deploys
+    # can't accidentally ship the well-known default.
+    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    if not admin_email or not admin_password:
+        raise RuntimeError(
+            "ADMIN_EMAIL and ADMIN_PASSWORD must be set in the environment to seed the admin user."
+        )
     existing = await db.users.find_one({"email": admin_email}, {"_id": 0})
     if existing is None:
         admin_id = f"user_{uuid.uuid4().hex[:12]}"

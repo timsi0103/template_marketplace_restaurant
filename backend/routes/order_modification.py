@@ -320,11 +320,12 @@ async def admin_modify(order_id: str, body: ModifyOrderIn, request: Request):
     if body.items is not None:
         if not body.items:
             raise HTTPException(status_code=400, detail="At least one item required")
-        items_enriched = await _enrich_items(body.items)
+        items_enriched, _products_by_id = await _enrich_items(body.items)
         totals = await _compute_order_totals(
             items_enriched, body.fulfillment_type or order.get("fulfillment_type"),
             order.get("promo_applied"), order.get("tip", 0),
             contact_email=order.get("contact_email"), user_id=order.get("user_id"),
+            products_by_id=_products_by_id,
         )
         if body.manual_discount is not None and body.manual_discount > 0:
             # Layer the manual discount on top (capped by subtotal so total stays non-negative).
