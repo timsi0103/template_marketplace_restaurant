@@ -8,8 +8,66 @@ import os
 import uuid
 
 from emergentintegrations.payments.stripe.checkout import StripeCheckout
+from pymongo import ReturnDocument
 
 from core import api_router, db, logger, get_current_user
+
+
+async def _on_order_paid(order_id: str) -> bool:
+    """Atomically flip the order to paid and run side effects exactly once.
+
+    Returns True if this call won the race and marked the order paid,
+    False if it was already paid by another request.
+    """
+    # Imported lazily to avoid circular import with printers.py.
+    from routes.printers import _auto_queue_for_order
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updated = await db.orders.find_one_and_update(
+        {"id": order_id, "payment_status": {"$ne": "paid"}},
+        {"$set": {"payment_status": "paid", "status": "pending", "updated_at": now_iso}},
+        projection={"_id": 0},
+        return_document=ReturnDocument.AFTER,
+    )
+    if updated is None:
+        return False
+
+    await _auto_queue_for_order(order_id, "placement")
+    try:
+        from routes.throttle import maybe_auto_pause
+        await maybe_auto_pause()
+    except Exception:
+        pass
+    if updated.get("promo_applied"):
+        await db.promo_codes.update_one(
+            {"code": updated["promo_applied"]},
+            {"$inc": {"usage_count": 1}},
+        )
+    if updated.get("user_id"):
+        # Use secrets module for non-predictable mock card generation
+        # (avoids weak-RNG security flag even though these are mock values)
+        import secrets
+        brands = ["visa", "mastercard", "amex", "discover"]
+        brand = secrets.choice(brands)
+        last4 = f"{secrets.randbelow(10000):04d}"
+        exp_m = secrets.randbelow(12) + 1
+        exp_y = datetime.now(timezone.utc).year + secrets.randbelow(4) + 1
+        exists = await db.payment_methods.find_one(
+            {"user_id": updated["user_id"], "brand": brand, "last4": last4},
+            {"_id": 0},
+        )
+        if not exists:
+            await db.payment_methods.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": updated["user_id"],
+                "contact_email": updated.get("contact_email"),
+                "brand": brand, "last4": last4,
+                "exp_month": exp_m, "exp_year": exp_y,
+                "cardholder_name": updated.get("contact_name") or "",
+                "source": "mock_stripe_checkout",
+                "created_at": now_iso,
+            })
+    return True
 
 
 class PaymentMethodCreate(BaseModel):
@@ -22,9 +80,6 @@ class PaymentMethodCreate(BaseModel):
 
 @api_router.get("/payments/status/{session_id}")
 async def payment_status(session_id: str, request: Request):
-    # Imported lazily to avoid circular import with printers.py
-    from routes.printers import _auto_queue_for_order
-
     api_key = os.environ.get("STRIPE_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="Stripe not configured")
@@ -66,47 +121,7 @@ async def payment_status(session_id: str, request: Request):
             {"$set": {"status": status_raw, "payment_status": payment_status_raw, "updated_at": now_iso}},
         )
         if payment_status_raw == "paid" and order_id:
-            await db.orders.update_one(
-                {"id": order_id},
-                {"$set": {"payment_status": "paid", "status": "pending", "updated_at": now_iso}},
-            )
-            await _auto_queue_for_order(order_id, "placement")
-            try:
-                from routes.throttle import maybe_auto_pause
-                await maybe_auto_pause()
-            except Exception:
-                pass
-            paid_order = await db.orders.find_one({"id": order_id}, {"_id": 0})
-            if paid_order and paid_order.get("promo_applied"):
-                await db.promo_codes.update_one(
-                    {"code": paid_order["promo_applied"]},
-                    {"$inc": {"usage_count": 1}},
-                )
-            order_for_card = paid_order
-            if order_for_card and order_for_card.get("user_id"):
-                # Use secrets module for non-predictable mock card generation
-                # (avoids weak-RNG security flag even though these are mock values)
-                import secrets
-                brands = ["visa", "mastercard", "amex", "discover"]
-                brand = secrets.choice(brands)
-                last4 = f"{secrets.randbelow(10000):04d}"
-                exp_m = secrets.randbelow(12) + 1
-                exp_y = datetime.now(timezone.utc).year + secrets.randbelow(4) + 1
-                exists = await db.payment_methods.find_one(
-                    {"user_id": order_for_card["user_id"], "brand": brand, "last4": last4},
-                    {"_id": 0},
-                )
-                if not exists:
-                    await db.payment_methods.insert_one({
-                        "id": str(uuid.uuid4()),
-                        "user_id": order_for_card["user_id"],
-                        "contact_email": order_for_card.get("contact_email"),
-                        "brand": brand, "last4": last4,
-                        "exp_month": exp_m, "exp_year": exp_y,
-                        "cardholder_name": order_for_card.get("contact_name") or "",
-                        "source": "mock_stripe_checkout",
-                        "created_at": now_iso,
-                    })
+            await _on_order_paid(order_id)
 
     order = None
     if order_id:
@@ -146,10 +161,7 @@ async def stripe_webhook(request: Request):
             if getattr(evt, "payment_status", None) == "paid":
                 order_id = tx.get("order_id")
                 if order_id:
-                    await db.orders.update_one(
-                        {"id": order_id},
-                        {"$set": {"payment_status": "paid", "status": "pending", "updated_at": now_iso}},
-                    )
+                    await _on_order_paid(order_id)
     return {"received": True}
 
 
@@ -159,7 +171,7 @@ async def list_payment_methods(request: Request):
         user = await get_current_user(request)
     except HTTPException:
         return {"payment_methods": []}
-    if not user or user.get("guest"):
+    if not user or user.get("role") == "guest":
         return {"payment_methods": []}
     uid = user.get("id") or user.get("_id") or user.get("email")
     methods = await db.payment_methods.find({"user_id": uid}, {"_id": 0}).sort("created_at", -1).to_list(50)
@@ -169,8 +181,8 @@ async def list_payment_methods(request: Request):
 @api_router.post("/payment-methods")
 async def add_payment_method(body: PaymentMethodCreate, request: Request):
     user = await get_current_user(request)
-    if not user or user.get("guest"):
-        raise HTTPException(status_code=401, detail="Login required to save payment methods")
+    if user.get("role") == "guest":
+        raise HTTPException(status_code=403, detail="Saved payment methods require a registered account")
     uid = user.get("id") or user.get("_id") or user.get("email")
     last4 = "".join(ch for ch in body.last4 if ch.isdigit())[-4:]
     if len(last4) != 4:
@@ -197,8 +209,8 @@ async def add_payment_method(body: PaymentMethodCreate, request: Request):
 @api_router.delete("/payment-methods/{method_id}")
 async def delete_payment_method(method_id: str, request: Request):
     user = await get_current_user(request)
-    if not user or user.get("guest"):
-        raise HTTPException(status_code=401, detail="Login required")
+    if user.get("role") == "guest":
+        raise HTTPException(status_code=403, detail="Saved payment methods require a registered account")
     uid = user.get("id") or user.get("_id") or user.get("email")
     res = await db.payment_methods.delete_one({"id": method_id, "user_id": uid})
     if res.deleted_count == 0:
