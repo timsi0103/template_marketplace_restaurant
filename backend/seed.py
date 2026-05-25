@@ -42,6 +42,10 @@ async def run_startup_seed():
     await db.modifier_groups.create_index("linked_item_ids")
     await db.store_holidays.create_index("id")
     await db.store_holidays.create_index("date")
+    # Idempotency keys: unique on (key, scope) to make claim atomic via
+    # DuplicateKeyError; TTL on created_at sweeps stale rows after 24h.
+    await db.idempotency_keys.create_index([("key", 1), ("scope", 1)], unique=True)
+    await db.idempotency_keys.create_index("created_at", expireAfterSeconds=86400)
 
     # Admin seed — fail-fast if creds aren't provided so production deploys
     # can't accidentally ship the well-known default.

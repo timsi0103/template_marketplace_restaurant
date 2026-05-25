@@ -1,11 +1,15 @@
 """Orders: create, validate-promo, list, get, favorite. Includes totals helpers."""
 from fastapi import HTTPException, Request
+from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 from typing import List, Optional
 from pydantic import BaseModel
 import uuid
 import os
 import secrets
+import logging
+
+from pymongo.errors import DuplicateKeyError
 
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout, CheckoutSessionRequest, CheckoutSessionResponse,
@@ -13,6 +17,8 @@ from emergentintegrations.payments.stripe.checkout import (
 
 from core import api_router, db, get_current_user
 from models import OrderCreate, OrderLineIn, PromoValidate
+
+logger = logging.getLogger(__name__)
 
 TAX_RATE = 0.0875
 DELIVERY_FEE = 4.99
@@ -233,24 +239,47 @@ async def create_order(body: OrderCreate, request: Request):
         reason = (store_settings.get("pause_reason") or "").strip() or "We are temporarily not accepting orders."
         raise HTTPException(status_code=503, detail=f"Ordering paused: {reason}")
 
-    # Idempotency: if a key was provided and we've already processed it, return the same result.
-    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
-    if idempotency_key:
-        existing = await db.idempotency_keys.find_one(
-            {"key": idempotency_key, "scope": "create_order"}, {"_id": 0}
-        )
-        if existing and existing.get("response"):
-            return existing["response"]
-
     items_enriched, products_by_id = await _enrich_items(body.items)
 
     user_id = None
     try:
         user = await get_current_user(request)
-        if user and not user.get("guest"):
-            user_id = user.get("user_id") or user.get("id") or user.get("email")
-    except Exception:
+        # get_current_user raises HTTPException(401) for unauthenticated callers,
+        # so reaching this line means we have a real user dict.
+        user_id = user.get("user_id") or user.get("id") or user.get("email")
+    except HTTPException:
         user_id = None
+
+    # Idempotency: atomic claim via unique index BEFORE we do any side-effectful
+    # work (Stripe session create, payment_transactions/orders insert). If two
+    # concurrent requests share the same key, exactly one wins the claim and the
+    # others either get the cached response (when "done") or a 409 telling them
+    # to retry while the first request is still in flight.
+    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+    claimed = False
+    if idempotency_key:
+        try:
+            await db.idempotency_keys.insert_one({
+                "key": idempotency_key,
+                "scope": "create_order",
+                "user_id": user_id,
+                "created_at": datetime.now(timezone.utc),
+                "status": "in_flight",
+            })
+            claimed = True
+        except DuplicateKeyError:
+            claimed = False
+        if not claimed:
+            existing = await db.idempotency_keys.find_one(
+                {"key": idempotency_key, "scope": "create_order"}, {"_id": 0}
+            )
+            if existing and existing.get("response"):
+                return JSONResponse(
+                    existing["response"],
+                    status_code=int(existing.get("status_code") or 200),
+                )
+            # Still in flight — ask the client to retry shortly.
+            raise HTTPException(status_code=409, detail="Request already being processed; retry shortly")
 
     totals = await _compute_order_totals(
         items_enriched, body.fulfillment_type, body.promo_code, body.tip,
@@ -328,32 +357,54 @@ async def create_order(body: OrderCreate, request: Request):
 
     # Two-phase write to keep order + payment_transaction consistent without a
     # real DB transaction: insert payment_transaction as `pending` first, then
-    # the order, then flip the transaction to `recorded`. If any step fails the
-    # pending row is reconcilable.
+    # the order, then flip the transaction to `recorded`. If anything fails
+    # mid-flight we best-effort mark both rows `failed` so a Stripe session
+    # without a matching paid order isn't left as an orphan.
     payment_txn_id = str(uuid.uuid4())
-    await db.payment_transactions.insert_one({
-        "id": payment_txn_id,
-        "session_id": session.session_id,
-        "order_id": order_id, "order_number": order_number,
-        "amount": float(totals["total"]), "currency": "usd",
-        "user_id": user_id, "contact_email": body.contact_email,
-        "status": "pending", "payment_status": "initiated",
-        "metadata": {"order_id": order_id, "order_number": order_number, "fulfillment_type": body.fulfillment_type},
-        "created_at": now_iso, "updated_at": now_iso,
-    })
     try:
+        await db.payment_transactions.insert_one({
+            "id": payment_txn_id,
+            "session_id": session.session_id,
+            "order_id": order_id, "order_number": order_number,
+            "amount": float(totals["total"]), "currency": "usd",
+            "user_id": user_id, "contact_email": body.contact_email,
+            "status": "pending", "payment_status": "initiated",
+            "metadata": {"order_id": order_id, "order_number": order_number, "fulfillment_type": body.fulfillment_type},
+            "created_at": now_iso, "updated_at": now_iso,
+        })
         await db.orders.insert_one(order_doc)
-    except Exception:
-        # Mark the orphan payment_transaction for reconciliation and re-raise.
-        await db.payment_transactions.update_one(
+        await db.payment_transactions.find_one_and_update(
             {"id": payment_txn_id},
-            {"$set": {"status": "orphaned", "updated_at": datetime.now(timezone.utc).isoformat()}},
+            {"$set": {"status": "recorded", "updated_at": datetime.now(timezone.utc).isoformat()}},
         )
-        raise
-    await db.payment_transactions.find_one_and_update(
-        {"id": payment_txn_id},
-        {"$set": {"status": "recorded", "updated_at": datetime.now(timezone.utc).isoformat()}},
-    )
+    except Exception as e:
+        logger.exception("Order/payment two-phase write failed")
+        # Best-effort cleanup of either row that may have been inserted.
+        try:
+            await db.payment_transactions.update_one(
+                {"id": payment_txn_id},
+                {"$set": {"status": "failed", "error": str(e),
+                          "updated_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception:
+            pass
+        try:
+            await db.orders.update_one(
+                {"id": order_id},
+                {"$set": {"payment_status": "failed", "error": str(e),
+                          "updated_at": datetime.now(timezone.utc).isoformat()}},
+            )
+        except Exception:
+            pass
+        # Release the idempotency claim so the client can retry with a fresh attempt.
+        if idempotency_key:
+            try:
+                await db.idempotency_keys.delete_one(
+                    {"key": idempotency_key, "scope": "create_order"}
+                )
+            except Exception:
+                pass
+        raise HTTPException(status_code=500, detail="Order placement failed; please retry")
 
     result = {
         "order_id": order_id, "order_number": order_number,
@@ -363,16 +414,17 @@ async def create_order(body: OrderCreate, request: Request):
     }
 
     if idempotency_key:
-        # Best-effort upsert; ignore races (the first writer wins).
+        # Persist the response on the already-claimed row so subsequent retries
+        # with the same key return the same payload.
         try:
             await db.idempotency_keys.update_one(
                 {"key": idempotency_key, "scope": "create_order"},
-                {"$setOnInsert": {
-                    "key": idempotency_key, "scope": "create_order",
-                    "response": result, "order_id": order_id,
-                    "created_at": now_iso,
+                {"$set": {
+                    "response": result,
+                    "order_id": order_id,
+                    "status": "done",
+                    "status_code": 200,
                 }},
-                upsert=True,
             )
         except Exception:
             pass
@@ -389,10 +441,9 @@ async def list_orders(request: Request, email: Optional[str] = None):
     The previous unauthenticated `?email=` filter was an IDOR vector and has
     been removed.
     """
+    # get_current_user raises 401 for unauthenticated callers; reaching here
+    # means we have a real user dict.
     user = await get_current_user(request)
-    if not user or user.get("guest"):
-        raise HTTPException(status_code=401, detail="Sign in to view your orders")
-
     role = user.get("role", "customer")
 
     if role == "admin":
@@ -452,9 +503,8 @@ async def get_order(order_id: str, request: Request, token: Optional[str] = None
 
 @api_router.patch("/orders/{order_id}/favorite")
 async def toggle_order_favorite(order_id: str, request: Request):
+    # get_current_user raises 401 for unauthenticated callers.
     user = await get_current_user(request)
-    if not user or user.get("guest"):
-        raise HTTPException(status_code=401, detail="Login required")
     uid = user.get("user_id") or user.get("id") or user.get("email")
     order = await db.orders.find_one({"id": order_id}, {"_id": 0})
     if not order:
