@@ -46,12 +46,23 @@ def _build_ticket_payload(order: dict, ticket_type: str, printer: Optional[dict]
 async def _resolve_printers_for_order(order: dict) -> List[dict]:
     kds = await db.kds_settings.find_one({"key": "kds_settings"}, {"_id": 0}) or {}
     routing = kds.get("station_routing", {}) or {}
+    items = order.get("items", []) or []
+    # Batch fetch menu_items for lines missing a category to avoid N+1.
+    missing_ids = list({
+        it.get("item_id") for it in items
+        if not (it.get("category") or "") and it.get("item_id")
+    })
+    cats_by_id: Dict[str, str] = {}
+    if missing_ids:
+        cursor = db.menu_items.find(
+            {"id": {"$in": missing_ids}}, {"_id": 0, "id": 1, "category": 1}
+        )
+        cats_by_id = {m["id"]: (m.get("category") or "") async for m in cursor}
     order_cats = set()
-    for it in order.get("items", []):
+    for it in items:
         cat = (it.get("category") or "").lower()
         if not cat:
-            mi = await db.menu_items.find_one({"id": it.get("item_id")}, {"_id": 0, "category": 1})
-            cat = (mi or {}).get("category", "").lower()
+            cat = cats_by_id.get(it.get("item_id"), "").lower()
         if cat:
             order_cats.add(cat)
     stations_hit = [s for s, cats in routing.items() if set(c.lower() for c in cats) & order_cats]

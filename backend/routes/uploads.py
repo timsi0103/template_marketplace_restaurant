@@ -5,7 +5,7 @@ from fastapi import HTTPException, Request, UploadFile, File, Form, Response
 from datetime import datetime, timezone
 import os
 import uuid
-import requests
+import httpx
 
 from core import api_router, db, logger, require_admin
 
@@ -22,14 +22,15 @@ ALLOWED_CONTENT_TYPES = {
 _storage_key = None
 
 
-def _ensure_storage_key() -> str:
+async def _ensure_storage_key() -> str:
     global _storage_key
     if _storage_key:
         return _storage_key
     if not EMERGENT_KEY:
         raise HTTPException(status_code=500, detail="Object storage not configured (missing EMERGENT_LLM_KEY)")
     try:
-        r = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY}, timeout=30)
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(f"{STORAGE_URL}/init", json={"emergent_key": EMERGENT_KEY})
         r.raise_for_status()
         _storage_key = r.json()["storage_key"]
         logger.info("Object storage initialized")
@@ -39,20 +40,22 @@ def _ensure_storage_key() -> str:
         raise HTTPException(status_code=503, detail="Could not connect to object storage")
 
 
-def _put_object(path: str, data: bytes, content_type: str) -> dict:
-    key = _ensure_storage_key()
-    r = requests.put(
-        f"{STORAGE_URL}/objects/{path}",
-        headers={"X-Storage-Key": key, "Content-Type": content_type},
-        data=data, timeout=120,
-    )
+async def _put_object(path: str, data: bytes, content_type: str) -> dict:
+    key = await _ensure_storage_key()
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.put(
+            f"{STORAGE_URL}/objects/{path}",
+            headers={"X-Storage-Key": key, "Content-Type": content_type},
+            content=data,
+        )
     r.raise_for_status()
     return r.json()
 
 
-def _get_object(path: str):
-    key = _ensure_storage_key()
-    r = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
+async def _get_object(path: str):
+    key = await _ensure_storage_key()
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key})
     r.raise_for_status()
     return r.content, r.headers.get("Content-Type", "application/octet-stream")
 
@@ -73,7 +76,7 @@ async def store_user_upload(*, file: UploadFile, uploader_id: str, purpose: str,
     file_id = f"up_{uuid.uuid4().hex[:12]}"
     storage_path = f"{APP_NAME}/uploads/{uploader_id}/{uuid.uuid4()}.{ext}"
     try:
-        result = _put_object(storage_path, data, file.content_type)
+        result = await _put_object(storage_path, data, file.content_type)
     except Exception as e:
         logger.error(f"Object storage PUT failed: {e}")
         raise HTTPException(status_code=502, detail="Storage upload failed")
@@ -116,7 +119,7 @@ async def download_file(file_id: str):
     if not record:
         raise HTTPException(status_code=404, detail="File not found")
     try:
-        data, content_type = _get_object(record["storage_path"])
+        data, content_type = await _get_object(record["storage_path"])
     except Exception as e:
         logger.error(f"Object storage GET failed for {file_id}: {e}")
         raise HTTPException(status_code=502, detail="Storage fetch failed")

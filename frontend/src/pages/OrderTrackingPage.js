@@ -62,11 +62,22 @@ export default function OrderTrackingPage() {
       return;
     }
     let stopped = false;
+    // Guest lookup token: read from URL or fall back to last_order_context stored at checkout.
+    const urlToken = params.get("token");
+    let storedToken = null;
+    try {
+      const ctx = JSON.parse(localStorage.getItem("last_order_context") || "{}");
+      if (ctx && ctx.order_id === orderId) storedToken = ctx.lookup_token || null;
+    } catch { /* ignore */ }
+    const token = urlToken || storedToken;
+
     const fetchOrder = async () => {
       try {
-        const res = await fetch(`/api/orders/${orderId}`);
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        const res = await fetch(`/api/orders/${orderId}${qs}`, { credentials: "include" });
         if (!res.ok) {
           if (res.status === 404) throw new Error("Order not found. Check the link.");
+          if (res.status === 401 || res.status === 403) throw new Error("This tracking link is no longer valid. Please sign in or use the link from your confirmation email.");
           throw new Error("Could not load order.");
         }
         const data = await res.json();

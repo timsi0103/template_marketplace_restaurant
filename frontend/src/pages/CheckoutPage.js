@@ -64,6 +64,20 @@ export default function CheckoutPage() {
   const [payMethod, setPayMethod] = useState("card");
   const [savedCardId, setSavedCardId] = useState(null);
   const [cardForm, setCardForm] = useState({ number: "", expiry: "", cvv: "", name: "" });
+  // Idempotency key: stable for the lifetime of a single checkout attempt so
+  // double-clicks, network retries, and retries-after-error collapse into one
+  // server-side order. Reset only when a new checkout begins (component remount
+  // after navigate-away or post-success redirect).
+  const [idempotencyKey, setIdempotencyKey] = useState(null);
+
+  useEffect(() => {
+    if (!idempotencyKey) {
+      const key =
+        (window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) ||
+        `co-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setIdempotencyKey(key);
+    }
+  }, [idempotencyKey]);
 
   // Auth required: send unauthenticated visitors to the login page first
   useEffect(() => {
@@ -248,9 +262,19 @@ export default function CheckoutPage() {
         contact_phone: contact.phone || "",
         origin_url: window.location.origin,
       };
+      // Use the memoized key from component state — same value across retries
+      // until the checkout component remounts (success redirect / navigate away).
+      const keyForRequest =
+        idempotencyKey ||
+        ((window.crypto && window.crypto.randomUUID && window.crypto.randomUUID()) ||
+          `co-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      if (!idempotencyKey) setIdempotencyKey(keyForRequest);
       const res = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": keyForRequest,
+        },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
@@ -264,6 +288,7 @@ export default function CheckoutPage() {
           order_number: data.order_number,
           contact_email: contact.email,
           fulfillment_type: fulfillment,
+          lookup_token: data.lookup_token || null,
         }));
       } catch { /* ignore */ }
       clearCart();
